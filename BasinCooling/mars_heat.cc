@@ -1,8 +1,8 @@
 
  
-//  Author: Sarah Steele, Harvard 2024 (based on code written by Anton Ermakov, which was in turn based on a deal.ii tutorial 
-//  code written by Wolfgang Bangerth, Texas A&M University)
- 
+//  Author: Sarah Steele, Harvard 2024 (based on code written by Anton Ermakov (Stanford), which was in turn based on a deal.ii tutorial 
+//  code written by Wolfgang Bangerth (Texas A&M University))
+
 
 
 #include <deal.II/base/exceptions.h>
@@ -1504,6 +1504,8 @@ void HeatEquation<dim>::set_initial_temperature()
 			old_heat_solution);
 	
 	heat_solution = old_heat_solution;
+	
+	// graphical_output_results_simple();
 
 	bool evaluation_point_found = false;
 	T_bottom = 100;
@@ -1662,6 +1664,7 @@ void HeatEquation<dim>::refine_mesh_simple(const unsigned int min_grid_level,
 
 	constraints.distribute(heat_solution);
 
+
 };
 
 
@@ -1714,16 +1717,18 @@ void HeatEquation<dim>::run_simple()
 		heat_bc_tmp.reinit(heat_solution.size());
 		heat_forcing_terms.reinit(heat_solution.size());
 
+
+		// set boundary indicators
+		set_boundary_indicators();
+
 		// heat_boundary_values_function_top.set_surface_temperature(cfg.T_surf);
 		heat_boundary_values_function_right.set_temperature_field(x_vec,z_vec,eq_temperature_mat);
 		heat_boundary_values_function_bottom.set_bottom_temperature(T_bottom);
 		//std::cout << "Boundary functions set" << std::endl;
 
-		graphical_output_results_simple();
-
-		// set boundary indicators
-		set_boundary_indicators();
 		heat_setup_system();
+
+		graphical_output_results_simple();
 
 		while (time <= cfg.final_time)
 		{
@@ -1737,6 +1742,8 @@ void HeatEquation<dim>::run_simple()
 
 			do_heat_step_simple();
 
+			graphical_output_results_simple();
+
 			if ((timestep_number == 1) && (pre_refinement_step < cfg.adaptive_refinement))
 			  {
 
@@ -1746,12 +1753,14 @@ void HeatEquation<dim>::run_simple()
 							  cfg.adaptive_refinement);
 				++pre_refinement_step;
 
-
+				
+				
 				heat_tmp.reinit(heat_solution.size());
 				heat_bc_tmp.reinit(heat_solution.size());
 				heat_forcing_terms.reinit(heat_solution.size());
 
 				std::cout << std::endl;
+				
 
 				goto start_time_iteration;
 			  }
@@ -1914,8 +1923,8 @@ int main(int argc, char* argv[])
 
 		if (argc == 1) // if no input parameters (as if launched from eclipse)
 		{
-			std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/200km/config.cfg");
-			// std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/1800km/config.cfg");
+			// std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/200km/config.cfg");
+			std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/2200km/config.cfg");
 		}
 		config_in cfg(config_filename);
 		HeatEquation<2> heat_equation_solver(cfg);

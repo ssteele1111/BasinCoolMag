@@ -9,12 +9,46 @@ This code is divided into two components: cooling calculations (BasinCooling) an
 Tested on Ubuntu 20.04.06 (Focal Fossa)
 
 C++ 
-deal.ii >=9 (and all related requirements)
+gcc
+CMake
+GNU Make
+GMSH
+deal.ii >=9 (installed with libconfig++-dev, BLAS, LAPACK, UMFPACK, and Gmsh)
+
+### Installing deal.II and dependencies:
+
+First, make sure that libconfig++-dev, BLAS, LAPACK, UMFPACK, and Gmsh are installed. I used the commands:
+
+```
+sudo apt install cmake
+sudo apt install libconfig++-dev
+sudo apt-get install libblas-dev
+sudo apt-get install liblapack-dev
+sudo apt-get install libsuitesparse-dev
+sudo apt install gmsh
+```
+
+Then download deal.ii from https://www.dealii.org/download.html and follow the installation instructions. To install deal.II v9.5.2, I used the commands:
+
+```
+gunzip deal.II-9.5.2.tar.gz
+tar xf deal.II-9.5.2.tar
+mkdir diibuild
+cd diibuild
+cmake -DCMAKE_INSTALL_PREFIX=/lib/dealii ../dealii-9.5.2 -DDEAL_II_WITH_GMSH=ON
+sudo make –jobs=8 install
+```
+
+CMake should automatically find and use the extra libraries (e.g. BLAS, LAPACK, Gmsh). If that fails, you may need to follow the more detailed instructions on the deal.II website to install everything necessary.
+
 
 ### Instructions:
+
 Use Preprocessing/CoolingNotebook.ipynb to produce configuration files for analytical initial temperature conditions OR download configuration files (config.cfg, mesh.*, T_smooth.txt, eq_T_smooth.txt, xc.txt, zc.txt [, kappa.txt]) for the desired basin size from the Harvard Dataverse (https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/TPW4WB&faces-redirect=true). These files should be stored in a dedicated folder which must contain a folder named "output" for run outputs. Check that file paths in config.cfg match the corresponding files. 
 
 Change the run target in mars_heat.cc main, then compile and run mars_heat.cc.
+
+
 
 
 ## BasinMagCalc
