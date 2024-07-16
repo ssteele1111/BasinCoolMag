@@ -15,9 +15,11 @@ GNU Make
 GMSH
 deal.ii >=9 (installed with libconfig++-dev, BLAS, LAPACK, UMFPACK, and Gmsh)
 
+It is also recommended to install ParaView or a similar software for viewing .inp and .vtk files. The meshio package in Python is also a good option.
+
 ### Installing deal.II and dependencies:
 
-First, make sure that libconfig++-dev, BLAS, LAPACK, UMFPACK, and Gmsh are installed. I used the commands:
+First, make sure that libconfig++-dev, BLAS, LAPACK, UMFPACK, Gmsh, and Armadillo (and its dependencies) are installed. I used the commands:
 
 ```
 sudo apt install cmake
@@ -25,8 +27,12 @@ sudo apt install libconfig++-dev
 sudo apt-get install libblas-dev
 sudo apt-get install liblapack-dev
 sudo apt-get install libsuitesparse-dev
+sudo apt-get install libarpack2-dev
+sudo apt-get install libsuperlu-dev
+sudo apt-get install libopenblas-openmp-dev
 sudo apt install gmsh
 ```
+and installed Armadillo from the download available at https://arma.sourceforge.net/download.html.
 
 Then download deal.ii from https://www.dealii.org/download.html and follow the installation instructions. To install deal.II v9.5.2, I used the commands:
 
@@ -46,9 +52,12 @@ CMake should automatically find and use the extra libraries (e.g. BLAS, LAPACK, 
 
 Use Preprocessing/CoolingNotebook.ipynb to produce configuration files for analytical initial temperature conditions OR download configuration files (config.cfg, mesh.*, T_smooth.txt, eq_T_smooth.txt, xc.txt, zc.txt [, kappa.txt]) for the desired basin size from the Harvard Dataverse (https://dataverse.harvard.edu/dataset.xhtml?persistentId=doi:10.7910/DVN/TPW4WB&faces-redirect=true). These files should be stored in a dedicated folder which must contain a folder named "output" for run outputs. Check that file paths in config.cfg match the corresponding files. 
 
-Change the run target in mars_heat.cc main, then compile and run mars_heat.cc.
+Change the run target in mars_heat.cc main, then compile and run the code. I used the commands:
 
-
+```
+cmake . -DDEAL_II_DIR=/lib/dealii
+make run
+```
 
 
 ## BasinMagCalc
@@ -75,7 +84,7 @@ Running this code will output:
 2. BMaps_nolr: Magnetic field maps neglecting late remagnetization
 3. RevRates: Mean reversal rates
 4. Revs: Full reversal histories
-5. SuscMaps: Subsampled maps of magnetization within the basin (note that this is subsampled aggressively to storage limitations, so cannot be used to regenerate magnetic fields later.)
+5. SuscMaps: Subsampled maps of magnetization within the basin (note that this is subsampled aggressively due to storage limitations, so cannot be used to regenerate magnetic fields later.)
 	
 Expected output is included in \600km\mag_output_expected\. 
 	
