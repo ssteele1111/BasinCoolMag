@@ -526,7 +526,7 @@ class BasinMag:
         print(np.max(B_map_bl),np.min(B_map_bl))
         return B_map_bl, Bz_map_bl, s_map_bl
     
-    def Bcalc(self, mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off):
+    def Bcalc(self, mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off,nosurf=False):
         
         # np.save(basefp_1+'mid.npy',mag_moms[:,399,:])
         # np.save(basefp_1+'top.npy',mag_moms[0,:,:])
@@ -571,8 +571,12 @@ class BasinMag:
             Bmapx += Bmapi[0]
             Bmapy += Bmapi[1]
             Bmapz += Bmapi[2]
-             
             
+            # also calculate the field from the top layer in case we want to subtract it off later
+            if zi == 0:
+                Bmap0x = Bmapi[0]*1e9
+                Bmap0y = Bmapi[1]*1e9
+                Bmap0z = Bmapi[2]*1e9
             
         # put into nT
         Bmapx = Bmapx*1e9
@@ -586,7 +590,12 @@ class BasinMag:
         
         print(np.max(np.abs(Bmap)))
         
-        return  Bmap, Bmapz
+        if nosurf:
+            Bmap_ns = np.sqrt((Bmapx-Bmap0x)**2+(Bmapy-Bmap0y)**2+(Bmapz-Bmap0z)**2)
+            Bmapz_ns = Bmapz - Bmap0z
+            return  Bmap, Bmapz, Bmap_ns, Bmapz_ns
+        else:
+            return  Bmap, Bmapz
     
     def Bnet_dual(self,quadr_mag_frac,mag_old,lift_off,imgrid=np.meshgrid(np.arange(-100e3,100e3,10e3),np.arange(-100e3,100e3,10e3)),manualcalc=True):
         '''
@@ -624,19 +633,21 @@ class BasinMag:
         
         mag_moms[self.lr_out>0] = 0
         
-        print('top 2km: ', self.lr_out[0,:,:].sum()/(801*801)*100)
-        print('top 10km: ', self.lr_out[0:5,:,:].sum()/(801*801*5)*100)
         
         # Bmap_0, Bmapz_0 = self.Bcalc(mag_moms, xm_list,  ym_list, zm_list, imgrid, 0.01)
         
+        # calculate field without late impacts
+        Bmap_0, Bmapz_0 = self.Bcalc(mag_moms, xm_list,  ym_list, zm_list, imgrid, lift_off)
         
-        # calculate field including late impacts
-        Bmap, Bmapz = self.Bcalc(mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off)
+        # add impact layer
+        print('Adding late impacts')
         
-        Bmap_0 = Bmap*0
-        Bmapz_0 = Bmapz*0
+        mag_moms[self.lr_out>0] = 0
         
-        return  Bmap_0, Bmapz_0, Bmap, Bmapz, mag_moms 
+        # calculate field including late impacts (and with a completely demagnetized near-surface)
+        Bmap, Bmapz,Bmap_ns,Bmapz_ns = self.Bcalc(mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off, nosurf=True)
+        
+        return  Bmap_0, Bmapz_0, Bmap, Bmapz, Bmap_ns, Bmapz_ns, mag_moms 
     
     def Bnet(self,quadr_mag_frac,mag_old,lift_off,imgrid=np.meshgrid(np.arange(-100e3,100e3,10e3),np.arange(-100e3,100e3,10e3)),manualcalc=True):
         '''
@@ -817,6 +828,8 @@ class BasinMag:
         Bz_maps_0 = np.zeros((len(Revs),lx_im,ly_im))
         B_maps = np.zeros((len(Revs),lx_im,ly_im))
         Bz_maps = np.zeros((len(Revs),lx_im,ly_im))
+        B_maps_ns = np.zeros((len(Revs),lx_im,ly_im))
+        Bz_maps_ns = np.zeros((len(Revs),lx_im,ly_im))
         s_maps = np.zeros((len(Revs),lz,2*lx-1,2*lx-1))
         
         self.mag_vec = mag_vec
@@ -838,7 +851,7 @@ class BasinMag:
                 mag_moms = rMagi[::-1,:,:]
                 
                 self.mag_moms = mag_moms
-                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
+                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, B_mapi_ns, Bz_mapi_ns, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
                 
                 # save stuff
                 revs.append(revsi)
@@ -846,6 +859,8 @@ class BasinMag:
                 Bz_maps_0[i,:,:] = Bz_mapi_0
                 B_maps[i,:,:] = B_mapi
                 Bz_maps[i,:,:] = Bz_mapi
+                B_maps_ns[i,:,:] = B_mapi_ns
+                Bz_maps_ns[i,:,:] = Bz_mapi_ns
                 s_maps[i,:,:,:] = s_mapi
             else:
                 print('Reversal history %d' %i)
@@ -858,7 +873,7 @@ class BasinMag:
                 mag_moms = rMagi[::-1,:,:]
                 
                 self.mag_moms = mag_moms
-                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
+                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, B_mapi_ns, Bz_mapi_ns, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
                 
                 # save stuff
                 revs.append(revsi)
@@ -866,7 +881,9 @@ class BasinMag:
                 Bz_maps_0[i,:,:] = Bz_mapi_0
                 B_maps[i,:,:] = B_mapi
                 Bz_maps[i,:,:] = Bz_mapi
+                B_maps_ns[i,:,:] = B_mapi_ns
+                Bz_maps_ns[i,:,:] = Bz_mapi_ns
                 s_maps[i,:,:,:] = s_mapi
             
-        return revs, B_maps_0, Bz_maps_0, B_maps, Bz_maps, s_maps
+        return revs, B_maps_0, Bz_maps_0, B_maps, Bz_maps, B_maps_ns, Bz_maps_ns, s_maps
 
