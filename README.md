@@ -68,6 +68,7 @@ Tested on Windows 10 22H2 and Rocky Linux 8.7 (Green Obsidian)
 Python 3.8.3-3.10.9
 Required Python packages:
 numpy,pandas,matplotlib,time,os,numba,meshio,asyncio,joblib
+scipy<1.14.0
 
 
 ### Installation:

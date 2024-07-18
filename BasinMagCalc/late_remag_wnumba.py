@@ -11,7 +11,6 @@ import os
 import matplotlib.pyplot as plt
 import pandas as pd
 from scipy.interpolate import interp1d
-import plotly.graph_objects as go
 from scipy import ndimage
 import numba
 import asyncio

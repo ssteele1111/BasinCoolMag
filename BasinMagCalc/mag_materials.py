@@ -9,7 +9,10 @@ Remagnetization equations from Lillis et al. (2013)
 import numpy as np
 from scipy.special import gammainc
 from scipy.special import gamma
-from scipy.constants.codata import mu0
+try:
+    from scipy.constants.codata import mu0
+except:
+    from scipy.constants import mu_0
 import matplotlib.pyplot as plt
 
 ## magnetic materials functions

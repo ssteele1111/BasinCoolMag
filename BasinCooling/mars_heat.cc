@@ -50,8 +50,8 @@
 #include <vector>
 #include <cmath>
 
-#include "/support_code/config_in.cc"
-#include "/support_code/timer.h"
+#include "support_code/config_in.cc"
+#include "support_code/timer.h"
 
 #include "heat_transfer.cc"
 #include "rheology.cc"
