@@ -30,10 +30,11 @@ from dipole_sources import calc_all
 
 ## BasinMag class
 class BasinMag:
-    def __init__(self,basefp,late_remag='none', tadj=1.05,interpt=1e4,**kwargs):
+    def __init__(self,basefp,imfile=False,late_remag='none', tadj=1.05,interpt=1e4,**kwargs):
         self.basefp = basefp
         self.makefps(**kwargs)
         self.tadj = tadj
+        self.imfile=imfile
         self.interpt = interpt
         self.lr_scaling = late_remag
         
@@ -533,7 +534,6 @@ class BasinMag:
         # add impact layer
         print('Adding late impacts')
         
-        
         mag_moms[self.lr_out>0] = 0
         
         # calculate field including late impacts
@@ -628,6 +628,7 @@ class BasinMag:
         
         print('nrevs: ', len(Revs))
         for i,revsi in enumerate(Revs):
+            self.rev_num = i
             # compute late impact remag
             self.late_remag()
             
@@ -677,6 +678,7 @@ class BasinMag:
         
         print('nrevs: ', len(Revs))
         for i,revsi in enumerate(Revs):
+            self.rev_num = i
             # compute late impact remag
             self.late_remag()
         

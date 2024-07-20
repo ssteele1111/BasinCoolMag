@@ -74,7 +74,7 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
         
         input_fp = os.path.join(fpin,rf'{i:d}km')
         # make basin
-        bmt1 = BasinMag(input_fp,late_remag=late_remag)
+        bmt1 = BasinMag(input_fp,late_remag=late_remag,imfile=imfile)
         
         print('Starting ' + str(i) + 'km')
         RevsB = []
@@ -123,6 +123,7 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
             fpRR = os.path.join(fpout,'RevRates',magdirstr,'RR_' + outtag + '.txt')
             
             for i in range(len(liftoff)):
+                outtag = str(i)+'km_' + str(mu) +'_'+str(thresh) + '_' + str(nRevs)  + '_' + str(liftoff[i]) + 'km'
                 
                 # make filepaths
                 fpB_0 = os.path.join(fpout,'BMaps_nolr',magdirstr,'BMap_'+outtag+'.txt')

@@ -1,21 +1,22 @@
 # BasinCoolMag
 ## Reproduction code for: Could the weak magnetism of Martian impact basins reflect cooling in a reversing dynamo?
 
-This code is divided into two components: cooling calculations (BasinCooling) and magnetic field calculations (BasinMagCalc). *These components have different requirements and have been tested on different operating systems.*
+This code is divided into two components: cooling calculations (BasinCooling) and magnetic field calculations (BasinMagCalc). 
 
 ## BasinCooling
 
 ### System requirements:
 Tested on Ubuntu 20.04.06 (Focal Fossa)
 
-C++ 
-gcc
-CMake
-GNU Make
-GMSH
-deal.ii >=9 (installed with libconfig++-dev, BLAS, LAPACK, UMFPACK, and Gmsh)
+- C++ 
+- gcc
+- CMake
+- GNU Make
+- Gmsh
+- Armadillo (and its dependencies)
+- deal.ii >=9 (installed with libconfig++-dev, BLAS, LAPACK, UMFPACK, and Gmsh)
 
-It is also recommended to install ParaView or a similar software for viewing .inp and .vtk files. The meshio package in Python is also a good option.
+It is also recommended to install ParaView or a similar software for viewing .inp and .vtk files. The meshio package in Python is also a good option; an example of the implementation is included in read_heat_steps.ipynb.
 
 ### Installing deal.II and dependencies:
 
@@ -59,6 +60,7 @@ cmake . -DDEAL_II_DIR=/lib/dealii
 make run
 ```
 
+The notebook read_heat_steps.ipynb includes simple scripts for viewing cooling data.
 
 ## BasinMagCalc
 
@@ -66,9 +68,8 @@ make run
 Tested on Windows 10 22H2 and Rocky Linux 8.7 (Green Obsidian)
 
 Python 3.8.3-3.10.9
-Required Python packages:
-numpy,pandas,matplotlib,time,os,numba,meshio,asyncio,joblib
-scipy<1.14.0
+Required Python packages:  
+numpy, pandas, matplotlib, time, os, numba, meshio, asyncio, joblib, scipy<1.14.0
 
 
 ### Installation:
@@ -85,13 +86,12 @@ Running this code will output:
 2. BMaps_nolr: Magnetic field maps neglecting late remagnetization
 3. RevRates: Mean reversal rates
 4. Revs: Full reversal histories
-5. SuscMaps: Subsampled maps of magnetization within the basin (note that this is subsampled aggressively due to storage limitations, so cannot be used to regenerate magnetic fields later.)
-	
+
 Expected output is included in \600km\mag_output_expected\. 
 	
 Estimated run time: 15 minutes
 	
-Also included are some simple analysis tools in mag_data_analysis.nb. Note that the magnetization intensity assumed in the magnetic field calculation scripts is 1 A/m; since magnetic field strength scales linearly with magnetization intensity, one can multiply final magnetic field maps by the desired amount to compare to manuscript values.
+Also included are some simple analysis tools in mag_data_analysis.ipynb. Note that the magnetization intensity assumed in the magnetic field calculation scripts is 1 A/m; since magnetic field strength scales linearly with magnetization intensity, one can multiply final magnetic field maps by the desired amount to compare to manuscript values.
 	
 	
 ### Further use/reproduction instructions:
