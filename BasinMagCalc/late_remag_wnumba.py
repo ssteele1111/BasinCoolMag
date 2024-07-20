@@ -41,36 +41,36 @@ imdefs = {"vi"  :   10,     # impact velocity (km/s)
 
 
 ## impactor flux data files
-data_fp = os.getcwd()+'\Marchi21_data'
+data_fp = os.path.join(os.getcwd(),'Marchi21_data')
 
 ## load cumulative crater density vs. time 
-MBA_early = np.genfromtxt(data_fp+'/ajabe417f2/mars_N1_MBA_early.dat',
+MBA_early = np.genfromtxt(os.path.join(data_fp,'ajabe417f2','mars_N1_MBA_early.dat'),
                      skip_header=2,
                      dtype=None,
                      delimiter='      ')
 
-MBA_late = np.genfromtxt(data_fp+'/ajabe417f2/mars_N1_MBA_late.dat',
+MBA_late = np.genfromtxt(os.path.join(data_fp,'ajabe417f2','mars_N1_MBA_late.dat'),
                      skip_header=2,
                      dtype=None,
                      delimiter='      ')
 
-NEO_early = np.genfromtxt(data_fp+'/ajabe417f2/mars_N1_NEO_early.dat',
+NEO_early = np.genfromtxt(os.path.join(data_fp,'ajabe417f2','mars_N1_NEO_early.dat'),
                      skip_header=2,
                      dtype=None,
                      delimiter='      ')
 
-NEO_late= np.genfromtxt(data_fp+'/ajabe417f2/mars_N1_NEO_late.dat',
+NEO_late= np.genfromtxt(os.path.join(data_fp,'ajabe417f2','mars_N1_NEO_late.dat'),
                      skip_header=2,
                      dtype=None,
                      delimiter='      ')
 
 # load MPF
-MPF_MBA = np.genfromtxt(data_fp+'/ajabe417f5/mars_MPF_MBA.dat',
+MPF_MBA = np.genfromtxt(os.path.join(data_fp,'ajabe417f5','mars_MPF_MBA.dat'),
                      skip_header=6,
                      dtype=None,
                      encoding=None)
 
-MPF_NEO = np.genfromtxt(data_fp+'/ajabe417f5/mars_MPF_NEO.dat',
+MPF_NEO = np.genfromtxt(os.path.join(data_fp,'ajabe417f5','mars_MPF_NEO.dat'),
                      skip_header=6,
                      dtype=None,
                      encoding=None)
@@ -196,40 +196,3 @@ class ImDomain:
         
         return res
     
-    def run_all_1500(self, age, model, MPF, scaling='excavation',sizelims=[2,1000],fac=1):
-            # do setup
-            time, N, MPF = self.time_setup(age, model, MPF, sizelims)
-            
-            # load one of 5 random small basin maps
-            np.load(rf'C:\Users\SteeleSarah\Researches\ImpactCooling\Scripts\ImpactMaps\1500km\smalls_{np.random.randint(5):d}')
-            
-            print('impacts time evolution: ', np.sum(N))
-            t0_tot = tm.time()
-            
-            outmat1 = np.zeros(self.xgrid.shape)
-            outmat2 = np.zeros(self.xgrid.shape)
-            outmat3 = np.zeros(self.xgrid.shape)
-            outmat4 = np.zeros(self.xgrid.shape)
-            outmat5 = np.zeros(self.xgrid.shape)
-            outmat6 = np.zeros(self.xgrid.shape)
-            outmat7 = np.zeros(self.xgrid.shape)
-            outmat8 = np.zeros(self.xgrid.shape)
-            
-            results = Parallel(n_jobs=8,prefer="threads")([delayed(time_evolve)(outmat1,self.xgrid, self.ygrid, self.zgrid, time[0:66], N[0:66], MPF, sizelims, scaling, fac),
-                        delayed(time_evolve)(outmat2,self.xgrid, self.ygrid, self.zgrid, time[66:76], N[66:76], MPF, sizelims, scaling, fac),
-                        delayed(time_evolve)(outmat3,self.xgrid, self.ygrid, self.zgrid, time[76:80], N[76:80], MPF, sizelims, scaling, fac),
-                        delayed(time_evolve)(outmat4,self.xgrid, self.ygrid, self.zgrid, time[80:81], N[80:81], MPF, sizelims, scaling, fac),
-                        delayed(time_evolve)(outmat5,self.xgrid, self.ygrid, self.zgrid, time[81:82], N[81:82], MPF, sizelims, scaling, fac),
-                        delayed(time_evolve)(outmat6,self.xgrid, self.ygrid, self.zgrid, time[82:83], N[82:83], MPF, sizelims, scaling, fac),
-                        delayed(time_evolve)(outmat7,self.xgrid, self.ygrid, self.zgrid, time[83:84], [int((N[83]-N[83]%3)/2)], MPF, sizelims, scaling, fac),
-                        delayed(time_evolve)(outmat8,self.xgrid, self.ygrid, self.zgrid, time[83:84], [int(N[83]-2*(N[83]-N[83]%3)/2)], MPF, sizelims, scaling, fac)])
-        
-            
-            res = results[0] + results[1] + results[2] + results[3] + results[4] + results[5] + results[6] + results[7]
-            
-            print('total runtime: ', tm.time()-t0_tot)
-            
-            self.mag = res
-            
-            return res
-        

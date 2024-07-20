@@ -71,8 +71,10 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
             
     for i in basinsizes:
         t0 = time.time()
-        
-        input_fp = os.path.join(fpin,rf'{i:d}km')
+        if fileapp:
+            input_fp = os.path.join(fpin,rf'{i:d}km'+'_'+fileapp)
+        else:
+            input_fp = os.path.join(fpin,rf'{i:d}km')
         # make basin
         bmt1 = BasinMag(input_fp,late_remag=late_remag,imfile=imfile)
         
@@ -80,7 +82,7 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
         RevsB = []
         
         # make label
-        outtag = str(i)+'km_' + str(mu) +'_'+str(thresh) + '_' + str(nRevs) 
+        outtag = str(i)+'km_' + fileapp + str(mu) +'_'+str(thresh) + '_' + str(nRevs) 
         output_fp = os.path.join(input_fp,'output')
         bmt1.do_setup(M_Tissint,output_fp,dx=soldx,tcoarsen=tcoarsen,xcoarsen=xcoarsen,curietrim=curietrim,load_heat=load_heat,save_heat=save_heat)
         
@@ -111,7 +113,7 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
             os.mkdir(os.path.join(fpout,'BMaps_nolr',magdirstr))
         if not os.path.isdir(os.path.join(fpout + 'BMaps_no2k',magdirstr)):
             os.mkdir(os.path.join(fpout,'BMaps_no2k',magdirstr))
-        if not os.path.isdir(os.path.join(fpout + 'RevRates',magdirstr):
+        if not os.path.isdir(os.path.join(fpout + 'RevRates',magdirstr)):
             os.mkdir(os.path.join(fpout,'RevRates',magdirstr))
         
         # save full reversal histories
@@ -123,7 +125,7 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
             fpRR = os.path.join(fpout,'RevRates',magdirstr,'RR_' + outtag + '.txt')
             
             for i in range(len(liftoff)):
-                outtag = str(i)+'km_' + str(mu) +'_'+str(thresh) + '_' + str(nRevs)  + '_' + str(liftoff[i]) + 'km'
+                outtag = str(i)+'km_' + fileapp + str(mu) +'_'+str(thresh) + '_' + str(nRevs)  + '_' + str(liftoff[i]) + 'km'
                 
                 # make filepaths
                 fpB_0 = os.path.join(fpout,'BMaps_nolr',magdirstr,'BMap_'+outtag+'.txt')
