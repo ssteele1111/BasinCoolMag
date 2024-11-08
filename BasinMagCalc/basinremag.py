@@ -39,7 +39,7 @@ class BasinMag:
         self.lr_scaling = late_remag
         
         # get lines from config file
-        cfg = open(self.basefp+'config.cfg', "r")
+        cfg = open(os.path.join(self.basefp,'config.cfg'), "r")
         list_of_lines = cfg.readlines()
         
         # set initial time step (dt0) and total run time (ttot)

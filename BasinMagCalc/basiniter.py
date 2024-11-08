@@ -33,7 +33,7 @@ if not os.path.isdir(fpout):
         os.mkdir(fpout)
 
 # main function
-def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid,soldx=1000,tcoarsen=1,xcoarsen=1,curietrim=True,load_heat=False,save_heat=False,fileapp='',late_remag='none',bg_mag=False,imfile=False):
+def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid,M_func=M_Tissint,soldx=1000,tcoarsen=1,xcoarsen=1,curietrim=True,load_heat=False,save_heat=False,fileapp='',late_remag='none',bg_mag=False,imfile=False):
     '''
     Iterates over specified basin sizes and saves magnetic field maps, susceptibility map slices, and reversal histories for
     a given number of randomly generated reversal histories shared by all basin sizes.
@@ -55,8 +55,8 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
         os.mkdir(os.path.join(fpout,'Revs'))
             
     # make reversal folder path if necessary
-    if not os.path.isdir(fpout + 'Revs' + os.sep+magdirstr):
-        os.mkdir(fpout + 'Revs'+os.sep+ magdirstr)
+    if not os.path.isdir(os.path.join(fpout,'Revs',magdirstr)):
+        os.mkdir(os.path.join(fpout,'Revs',magdirstr))
         
     # make reversal folder path if necessary
     if not os.path.isdir(os.path.join(fpout,'Revs', magdirstr,'Full')):
@@ -73,6 +73,10 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
         t0 = time.time()
         if fileapp:
             input_fp = os.path.join(fpin,rf'{i:d}km'+'_'+fileapp)
+            
+            if os.path.isdir(input_fp):
+                print(str(input_fp) +' not found, trying ' + str(os.path.join(fpin,rf'{i:d}km')))
+                input_fp = os.path.join(fpin,rf'{i:d}km')
         else:
             input_fp = os.path.join(fpin,rf'{i:d}km')
         # make basin
@@ -82,9 +86,9 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
         RevsB = []
         
         # make label
-        outtag = str(i)+'km_' + fileapp + str(mu) +'_'+str(thresh) + '_' + str(nRevs) 
+        outtag = str(i)+'km_' + fileapp + '_'+ str(mu) +'_'+str(thresh) + '_' + str(nRevs) 
         output_fp = os.path.join(input_fp,'output')
-        bmt1.do_setup(M_Tissint,output_fp,dx=soldx,tcoarsen=tcoarsen,xcoarsen=xcoarsen,curietrim=curietrim,load_heat=load_heat,save_heat=save_heat)
+        bmt1.do_setup(M_func,output_fp,dx=soldx,tcoarsen=tcoarsen,xcoarsen=xcoarsen,curietrim=curietrim,load_heat=load_heat,save_heat=save_heat)
         
         # get reversals on basin timescale
         nmax = bmt1.ttot/1e8*10000 - 1 # find highest location in full reversal history array that overlaps cooling history
@@ -109,11 +113,11 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
         # make dir if necessary
         if not os.path.isdir(os.path.join(fpout,'BMaps',magdirstr)):
             os.mkdir(os.path.join(fpout,'BMaps',magdirstr))
-        if not os.path.isdir(os.path.join(fpout + 'BMaps_nolr',magdirstr)):
+        if not os.path.isdir(os.path.join(fpout,'BMaps_nolr',magdirstr)):
             os.mkdir(os.path.join(fpout,'BMaps_nolr',magdirstr))
-        if not os.path.isdir(os.path.join(fpout + 'BMaps_no2k',magdirstr)):
+        if not os.path.isdir(os.path.join(fpout,'BMaps_no2k',magdirstr)):
             os.mkdir(os.path.join(fpout,'BMaps_no2k',magdirstr))
-        if not os.path.isdir(os.path.join(fpout + 'RevRates',magdirstr)):
+        if not os.path.isdir(os.path.join(fpout,'RevRates',magdirstr)):
             os.mkdir(os.path.join(fpout,'RevRates',magdirstr))
         
         # save full reversal histories
@@ -124,8 +128,8 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
             
             fpRR = os.path.join(fpout,'RevRates',magdirstr,'RR_' + outtag + '.txt')
             
-            for i in range(len(liftoff)):
-                outtag = str(i)+'km_' + fileapp + str(mu) +'_'+str(thresh) + '_' + str(nRevs)  + '_' + str(liftoff[i]) + 'km'
+            for j in range(len(liftoff)):
+                outtag = str(i)+'km_' + fileapp + '_' + str(mu) +'_'+str(thresh) + '_' + str(nRevs)  + '_' + str(liftoff[j])
                 
                 # make filepaths
                 fpB_0 = os.path.join(fpout,'BMaps_nolr',magdirstr,'BMap_'+outtag+'.txt')
@@ -137,7 +141,7 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
                 fpRR = os.path.join(fpout,'RevRates',magdirstr,'RR_'+outtag + '.txt')
                  
                 # run stuff
-                revs1,B1_0,Bz1_0,B1,Bz1,Bns1,Bzns1=bmt1.do_mult_revs_dual(RevsB,magdir,0,liftoff[i],imgrid)
+                revs1,B1_0,Bz1_0,B1,Bz1,Bns1,Bzns1=bmt1.do_mult_revs_dual(RevsB,magdir,0,liftoff[j],imgrid)
                 
                 # save stuff
                 np.savetxt(fpB_0,B1_0.reshape(B1_0.shape[0],-1)) 
@@ -150,7 +154,7 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
                 
                 
         else:
-            revs1,B1_0,Bz1_0,B1,Bz1=bmt1.do_mult_revs_dual(RevsB,magdir,0,liftoff,imgrid)
+            revs1,B1_0,Bz1_0,B1,Bz1,Bns1,Bzns1=bmt1.do_mult_revs_dual(RevsB,magdir,0,liftoff,imgrid)
             
             # make filepaths
             fpB_0 = os.path.join(fpout,'BMaps_nolr',magdirstr,'BMap_'+outtag+'.txt')
@@ -177,4 +181,4 @@ def do_basiniter_dual(basinsizes,nRevs,mu,thresh,magdir,magdirstr,liftoff,imgrid
     return 
 
 # run things
-do_basiniter_dual([800], 1,10,50,[0, 1, 0],"010_200km_ig3",200,imgrid3,xcoarsen=2,soldx=1000,load_heat=True,fileapp="",late_remag="excavation")
+do_basiniter_dual([800], 1,10,50,[0, 1, 0],"010_200km_ig3",200,imgrid3,xcoarsen=1,soldx=1000,load_heat=True,fileapp="",late_remag="excavation")
