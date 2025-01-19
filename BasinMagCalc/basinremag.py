@@ -30,32 +30,22 @@ from dipole_sources import calc_all
 
 ## BasinMag class
 class BasinMag:
-    def __init__(self,basefp,late_remag='none', tadj=1.05,interpt=1e4,**kwargs):
+    def __init__(self,basefp,imfile=False,late_remag='none', tadj=1.05,interpt=1e4,**kwargs):
         self.basefp = basefp
         self.makefps(**kwargs)
         self.tadj = tadj
+        self.imfile=imfile
         self.interpt = interpt
         self.lr_scaling = late_remag
         
         # get lines from config file
-        cfg = open(self.basefp+'config.cfg', "r")
+        cfg = open(os.path.join(self.basefp,'config.cfg'), "r")
         list_of_lines = cfg.readlines()
         
         # set initial time step (dt0) and total run time (ttot)
-        try:
-            # set initial time step (dt0) and total run time (ttot)
-            self.dt0 = float(list_of_lines[98][19:-2])
-            self.ttot = float(list_of_lines[99][19:-2])
+        self.dt0 = float(list_of_lines[90][19:-2])
+        self.ttot = float(list_of_lines[91][19:-2])
             
-            # set # of prerefine steps
-            self.preref = int(list_of_lines[74][27:-18])
-        except:
-            self.dt0 = float(list_of_lines[100][19:-2])
-            self.ttot = float(list_of_lines[101][19:-2])
-            
-            # set # of prerefine steps
-            self.preref = int(list_of_lines[75][27:-18])
-        
         # # load in base mesh, collect mesh points into a np array
         # mesh_df = pd.read_csv(basefp + 'mesh.inp', sep=" ",names=[1,2,3,4,5,6,7,8,9,10,11], skiprows=1, engine='python');
         
@@ -64,7 +54,7 @@ class BasinMag:
         
         return
     
-    def makefps(self,meshparamsfile = 'mesh_params.txt', heatsolfile = 'output/heat_solutions.txt'):
+    def makefps(self,meshparamsfile = 'mesh_params.txt', heatsolfile = os.path.join('output','heat_solutions.txt')):
         ''' make important file paths '''
         self.meshparamsfp = self.basefp + meshparamsfile
         self.heatsolfp = self.basefp + heatsolfile
@@ -86,8 +76,8 @@ class BasinMag:
         list_of_lines = cfg.readlines()
         
         # set time step (dt) and total run time (ttot)
-        self.dt = float(list_of_lines[98][19:-2])
-        self.ttot = float(list_of_lines[99][19:-2])
+        self.dt = float(list_of_lines[90][19:-2])
+        self.ttot = float(list_of_lines[91][19:-2])
         
         return
     
@@ -105,17 +95,20 @@ class BasinMag:
         
         return 
     
-    def read_sol(self,output_fp,dx=2000,save_heat=False,load_heat=False,curietrim=True,tcoarsen=1,xcoarsen=1):
+    def read_sol(self,output_fp,dx=1000,save_heat=False,load_heat=False,curietrim=True,tcoarsen=1,xcoarsen=1):
         # store tcoarsen choice
         self.tcoarsen = tcoarsen
         
         # load initial mesh to extract dimensions, etc.
-        meshi = meshio.read(output_fp+'\solution-000.vtk')
+        meshi = meshio.read(output_fp + os.sep + "solution-000.vtk")
             
         # get x, y, T data
         xi=meshi.points[:,0]
         yi=meshi.points[:,1]
-        Ti=meshi.point_data['solution']
+        try:
+            Ti=meshi.point_data['solution']
+        except:
+            Ti=meshi.point_data['U']
         # self.xi = xi
         # self.yi = yi
         # make base T array
@@ -128,7 +121,7 @@ class BasinMag:
         n_steps = np.argmax([t_full>self.ttot])+2
         
         if load_heat:
-            heat_sols = np.load(output_fp+'/T_reg.npy')
+            heat_sols = np.load(output_fp+os.sep+'T_reg.npy')
             heat_sols = heat_sols.reshape(heat_sols.shape[0],-1,n_steps)
             
                 # print("Heat file not found. Generating anew")
@@ -144,16 +137,21 @@ class BasinMag:
             xy_out = np.stack([new_x_mesh.flatten(),new_y_mesh.flatten()]).T
             
             i =  0
-            while os.path.isfile(output_fp + f'\solution-{i:03d}.vtk'):
+            print('Starting temperature file loading: ')
+            while os.path.isfile(output_fp + os.sep+ f"solution-{i:03d}.vtk"):
                 # load mesh
-                meshi = meshio.read(output_fp + f'\solution-{i:03d}.vtk')
+                meshi = meshio.read(output_fp + os.sep+ f"solution-{i:03d}.vtk")
                 if i%5 == 0:
                     print(i)
                 # get x, y, T data
                 xi=meshi.points[:,0]
                 yi=meshi.points[:,1]
                 xy_in = np.stack([xi,yi]).T
-                Ti=meshi.point_data['solution']
+            
+                try:
+                    Ti=meshi.point_data['solution']
+                except:
+                    Ti=meshi.point_data['U']
                 
                 # interpolate onto set mesh
                 T_out = scipy.interpolate.griddata(xy_in, Ti, xy_out)
@@ -164,7 +162,7 @@ class BasinMag:
                 i += 1
             
         if save_heat:
-            np.save(output_fp+'/T_reg.npy',heat_sols.reshape(heat_sols.shape[0], -1))
+            np.save(output_fp+os.sep+'T_reg.npy',heat_sols.reshape(heat_sols.shape[0], -1))
         
         # reorient heat_sols for rest of script
         heat_sols = np.moveaxis(heat_sols,2,0)
@@ -191,149 +189,6 @@ class BasinMag:
                            
         return self.heat_sols
 
-    
-    def read_sol_txt(self,rdepth=1,cdepth=50,ldepth=100,save_heat=False,load_heat=False, curietrim=True,tcoarsen=1,xcoarsen=1):
-        '''
-        read solution files and make heat solutions array.
-        
-        curietrim: cut off section of matrix that stays above ~hematite Curie point at all time steps
-        tcoarsen: only keep every n time stdeps
-        xcoarsen: only keep every n grid points
-        '''
-        # store tcoarsen choice
-        self.tcoarsen = tcoarsen
-        
-        # load heat solutions file
-        heat_sols_raw = np.loadtxt(self.heatsolfp)
-        
-        # drop prerefine rows
-        heat_sols_raw = np.concatenate([heat_sols_raw[0].reshape(1,-1),heat_sols_raw[self.preref*2+1:]])
-        
-        print('Done 1')
-        
-        # load mesh parameters
-        mps = np.loadtxt(self.meshparamsfp)
-        
-        print('Done 2')
-        xvals = mps[:,0]
-        zvals = mps[:,1]
-        xv_un = np.unique(xvals)
-        zv_un = np.unique(zvals)
-        
-        # reshape heat solutions
-        dimx = xv_un.shape[0]
-        dimz = zv_un.shape[0]
-        heat_sols_rs = np.reshape(heat_sols_raw,(-1,dimz,dimx))
-
-        # initialize final heat solutions array
-        heat_sols = np.zeros(heat_sols_rs.shape)
-        
-        # deal with weird solutions things resulting from different material properties
-        if np.max(np.abs(zv_un)) <= rdepth*1000:
-            ind_dr = np.max(np.where(zv_un > -rdepth*1000)[0]) - np.min(np.where(zv_un > -rdepth*1000)[0]) 
-            ind_r = np.min(np.where(zv_un > -rdepth*1000)[0])
-            
-            for i in range(heat_sols_rs.shape[0]):
-                temp = np.concatenate((heat_sols_rs[i,ind_dr+2:],np.roll(heat_sols_rs[i],-ind_dr-2,axis=0)[ind_r-1:ind_r+1].flatten().reshape(2,-1,order='F'),heat_sols_rs[i,2:ind_dr+2]))
-                
-                temp = temp[::-1,:]
-                
-                heat_sols[i,:,:] = temp
-                
-        elif np.max(np.abs(zv_un)) <= cdepth*1000:
-            ind_dc = np.max(np.where(zv_un > -cdepth*1000)[0]) - np.min(np.where(zv_un > -cdepth*1000)[0]) 
-            ind_r = np.min(np.where(zv_un > -rdepth*1000)[0])
-            ind_c = np.min(np.where(zv_un > -cdepth*1000)[0]);
-            
-            for i in range(heat_sols_rs.shape[0]):
-                temp = np.concatenate((heat_sols_rs[i,ind_dc+2:],np.roll(heat_sols_rs[i],-ind_dc-2,axis=0)[ind_c-1:ind_c+1].flatten().reshape(2,-1,order='F'),heat_sols_rs[i,2:ind_dc+2]))
-                
-                
-                temp = temp[::-1,:]
-                
-                heat_sols[i,:,:] = temp
-                
-            
-                
-        elif np.max(np.abs(zv_un)) <= ldepth*1000:
-            ind_dc = np.max(np.where(zv_un > -cdepth*1000)[0]) - np.min(np.where(zv_un > -cdepth*1000)[0]) 
-            ind_r = np.min(np.where(zv_un > -rdepth*1000)[0])
-            ind_c = np.min(np.where(zv_un > -cdepth*1000)[0]);
-            
-            for i in range(heat_sols_rs.shape[0]):
-                hs_temp = heat_sols_rs[i]
-                
-                hs_temp[:2,:]=hs_temp[:2,:].flatten().reshape(2,-1,order='F')
-                hs_temp[2:4,:]=hs_temp[2:4,:].flatten().reshape(2,-1,order='F')
-                hs_temp[ind_r-ind_c+2:ind_r-ind_c+4,:]=hs_temp[ind_r-ind_c+2:ind_r-ind_c+4,:].flatten().reshape(2,-1,order='F')
-                
-                hs_temp = hs_temp[::-1,:]
-                
-                hs_temp = np.concatenate((hs_temp[-2:,:],
-                               hs_temp[ind_c-1:-2,:],
-                               hs_temp[:ind_c-1,:]))
-                
-                hs_temp[0,0],hs_temp[1,1] = hs_temp[1,1],hs_temp[0,0]
-                
-                heat_sols[i,:,:] = hs_temp
-                
-        else:
-            ind_dl = np.max(np.where(zv_un > -ldepth*1000)[0]) - np.min(np.where(zv_un > -ldepth*1000)[0]) 
-            ind_r = np.min(np.where(zv_un > -rdepth*1000)[0])
-            ind_c = np.min(np.where(zv_un > -cdepth*1000)[0])
-            ind_l = np.min(np.where(zv_un > -ldepth*1000)[0])
-            
-            for i in range(heat_sols_rs.shape[0]):
-                # temp = np.concatenate((heat_sols_rs[i,ind_dl+2:],np.roll(heat_sols_rs[i],-ind_dl-2,axis=0)[ind_l-1:ind_l+1].flatten().reshape(2,-1,order='F'),heat_sols_rs[i,2:ind_dl+2]))
-                
-                hs_temp = heat_sols_rs[i]
-                
-                hs_temp[:2,:]=hs_temp[:2,:].flatten().reshape(2,-1,order='F')
-                hs_temp[2:4,:]=hs_temp[2:4,:].flatten().reshape(2,-1,order='F')
-                hs_temp[ind_r-ind_c+2:ind_r-ind_c+4,:]=hs_temp[ind_r-ind_c+2:ind_r-ind_c+4,:].flatten().reshape(2,-1,order='F')
-                hs_temp[ind_r-ind_l+2:ind_r-ind_l+4,:]=hs_temp[ind_r-ind_l+2:ind_r-ind_l+4,:].flatten().reshape(2,-1,order='F')
-                
-                hs_temp = hs_temp[::-1,:]
-                
-                hs_temp = np.concatenate((hs_temp[-2:,:],
-                               hs_temp[ind_c-1:-2,:],
-                               hs_temp[ind_l-1:ind_c-1,:],
-                               hs_temp[:ind_l-1,:]))
-                
-                hs_temp[0,0],hs_temp[1,1] = hs_temp[1,1],hs_temp[0,0]
-                #temp = np.concatenate((heat_sols_rs[i,ind_dl+2:],np.roll(heat_sols_rs[i],0,axis=0)[ind_l-1:ind_l+1].flatten().reshape(2,-1,order='F'),heat_sols_rs[i,2:ind_dl+2]))
-                
-                heat_sols[i,:,:] = hs_temp
-          
-        
-        
-
-        # get properly ordered z values for final arrays
-        zuinds = np.unique(zvals, return_index=True)[1]
-        zv_un = np.array([zvals[ind] for ind in sorted(zuinds)])
-        
-        # trim and subsample array as necessary
-        if curietrim and np.any(heat_sols[0,:,-1]>1200):
-            cutind = np.where(heat_sols[0,:,-1]>1200)[0][0]
-            self.xvals = xv_un[::xcoarsen]
-            self.zvals = zv_un[:cutind:xcoarsen]
-            self.cellsize = self.xvals[1]-self.xvals[0]#xv_un[1]-xv_un[0]
-            self.xgrid,self.zgrid = np.meshgrid(self.xvals,self.zvals)
-            self.nt = heat_sols.shape[0]
-            self.heat_sols = heat_sols[::tcoarsen,:cutind:xcoarsen,::xcoarsen]
-            
-        
-        else:   
-            self.xvals = xv_un[::xcoarsen]
-            self.zvals = zv_un[::-xcoarsen]
-            self.cellsize = self.xvals[1]-self.xvals[0]
-            self.xgrid,self.zgrid = np.meshgrid(self.xvals,self.zvals)
-            self.nt = heat_sols.shape[0]
-            print('!!!!')
-            self.heat_sols = heat_sols[::tcoarsen,::xcoarsen,::xcoarsen]
-        
-        
-        return self.heat_sols
     
     def make_map_arrays(self):
         ''' makes arrays for basin in full 3D '''
@@ -526,7 +381,7 @@ class BasinMag:
         print(np.max(B_map_bl),np.min(B_map_bl))
         return B_map_bl, Bz_map_bl, s_map_bl
     
-    def Bcalc(self, mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off):
+    def Bcalc(self, mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off,nosurf=False):
         
         # np.save(basefp_1+'mid.npy',mag_moms[:,399,:])
         # np.save(basefp_1+'top.npy',mag_moms[0,:,:])
@@ -571,8 +426,12 @@ class BasinMag:
             Bmapx += Bmapi[0]
             Bmapy += Bmapi[1]
             Bmapz += Bmapi[2]
-             
             
+            # also calculate the field from the top layer in case we want to subtract it off later
+            if zi == 0:
+                Bmap0x = Bmapi[0]*1e9
+                Bmap0y = Bmapi[1]*1e9
+                Bmap0z = Bmapi[2]*1e9
             
         # put into nT
         Bmapx = Bmapx*1e9
@@ -586,7 +445,12 @@ class BasinMag:
         
         print(np.max(np.abs(Bmap)))
         
-        return  Bmap, Bmapz
+        if nosurf:
+            Bmap_ns = np.sqrt((Bmapx-Bmap0x)**2+(Bmapy-Bmap0y)**2+(Bmapz-Bmap0z)**2)
+            Bmapz_ns = Bmapz - Bmap0z
+            return  Bmap, Bmapz, Bmap_ns, Bmapz_ns
+        else:
+            return  Bmap, Bmapz
     
     def Bnet_dual(self,quadr_mag_frac,mag_old,lift_off,imgrid=np.meshgrid(np.arange(-100e3,100e3,10e3),np.arange(-100e3,100e3,10e3)),manualcalc=True):
         '''
@@ -619,24 +483,18 @@ class BasinMag:
         # add background magnetization
         print('Adding random background magnetization')
         
+        # calculate field without late impacts
+        Bmap_0, Bmapz_0 = self.Bcalc(mag_moms, xm_list,  ym_list, zm_list, imgrid, lift_off)
+        
         # add impact layer
         print('Adding late impacts')
         
         mag_moms[self.lr_out>0] = 0
         
-        print('top 2km: ', self.lr_out[0,:,:].sum()/(801*801)*100)
-        print('top 10km: ', self.lr_out[0:5,:,:].sum()/(801*801*5)*100)
+        # calculate field including late impacts (and with a completely demagnetized near-surface)
+        Bmap, Bmapz,Bmap_ns,Bmapz_ns = self.Bcalc(mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off, nosurf=True)
         
-        # Bmap_0, Bmapz_0 = self.Bcalc(mag_moms, xm_list,  ym_list, zm_list, imgrid, 0.01)
-        
-        
-        # calculate field including late impacts
-        Bmap, Bmapz = self.Bcalc(mag_moms, xm_list, ym_list, zm_list, imgrid, lift_off)
-        
-        Bmap_0 = Bmap*0
-        Bmapz_0 = Bmapz*0
-        
-        return  Bmap_0, Bmapz_0, Bmap, Bmapz, mag_moms 
+        return  Bmap_0, Bmapz_0, Bmap, Bmapz, Bmap_ns, Bmapz_ns, mag_moms 
     
     def Bnet(self,quadr_mag_frac,mag_old,lift_off,imgrid=np.meshgrid(np.arange(-100e3,100e3,10e3),np.arange(-100e3,100e3,10e3)),manualcalc=True):
         '''
@@ -676,7 +534,6 @@ class BasinMag:
         # add impact layer
         print('Adding late impacts')
         
-        
         mag_moms[self.lr_out>0] = 0
         
         # calculate field including late impacts
@@ -707,10 +564,7 @@ class BasinMag:
     def do_setup(self,Mfunc,output_fp,**kwargs):
         ''' do essential setup for basin '''
         # read heat solutions output file
-        try:
-            self.read_sol_txt(**kwargs)
-        except:
-            self.read_sol(output_fp,**kwargs)
+        self.read_sol(output_fp,**kwargs)
         
         # make time list
         self.get_dt()
@@ -737,7 +591,7 @@ class BasinMag:
     def write_params(self):
         ''' write mapping parameters file '''
         # set filepath
-        params_fp = self.basefp + 'params.txt'
+        params_fp = os.path.join(self.basefp, 'params.txt')
         
         # write file
         with open(params_fp, 'w') as f:
@@ -774,6 +628,7 @@ class BasinMag:
         
         print('nrevs: ', len(Revs))
         for i,revsi in enumerate(Revs):
+            self.rev_num = i
             # compute late impact remag
             self.late_remag()
             
@@ -790,9 +645,8 @@ class BasinMag:
             revs.append(revsi)
             B_maps[i,:,:] = B_mapi
             Bz_maps[i,:,:] = Bz_mapi
-            s_maps[i,:,:,:] = s_mapi
             
-        return revs, B_maps, Bz_maps, s_maps
+        return revs, B_maps, Bz_maps
     
 
     def do_mult_revs_dual(self,Revs,mag_vec,mag_old,lift_off,imgrid,**kwargs):
@@ -817,12 +671,14 @@ class BasinMag:
         Bz_maps_0 = np.zeros((len(Revs),lx_im,ly_im))
         B_maps = np.zeros((len(Revs),lx_im,ly_im))
         Bz_maps = np.zeros((len(Revs),lx_im,ly_im))
-        s_maps = np.zeros((len(Revs),lz,2*lx-1,2*lx-1))
+        B_maps_ns = np.zeros((len(Revs),lx_im,ly_im))
+        Bz_maps_ns = np.zeros((len(Revs),lx_im,ly_im))
         
         self.mag_vec = mag_vec
         
         print('nrevs: ', len(Revs))
         for i,revsi in enumerate(Revs):
+            self.rev_num = i
             # compute late impact remag
             self.late_remag()
         
@@ -838,7 +694,7 @@ class BasinMag:
                 mag_moms = rMagi[::-1,:,:]
                 
                 self.mag_moms = mag_moms
-                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
+                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, B_mapi_ns, Bz_mapi_ns, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
                 
                 # save stuff
                 revs.append(revsi)
@@ -846,7 +702,8 @@ class BasinMag:
                 Bz_maps_0[i,:,:] = Bz_mapi_0
                 B_maps[i,:,:] = B_mapi
                 Bz_maps[i,:,:] = Bz_mapi
-                s_maps[i,:,:,:] = s_mapi
+                B_maps_ns[i,:,:] = B_mapi_ns
+                Bz_maps_ns[i,:,:] = Bz_mapi_ns
             else:
                 print('Reversal history %d' %i)
                 print(revsi)
@@ -858,7 +715,7 @@ class BasinMag:
                 mag_moms = rMagi[::-1,:,:]
                 
                 self.mag_moms = mag_moms
-                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
+                B_mapi_0, Bz_mapi_0, B_mapi, Bz_mapi, B_mapi_ns, Bz_mapi_ns, s_mapi = self.Bnet_dual(rMagi,mag_old,lift_off,imgrid=imgrid)
                 
                 # save stuff
                 revs.append(revsi)
@@ -866,7 +723,8 @@ class BasinMag:
                 Bz_maps_0[i,:,:] = Bz_mapi_0
                 B_maps[i,:,:] = B_mapi
                 Bz_maps[i,:,:] = Bz_mapi
-                s_maps[i,:,:,:] = s_mapi
+                B_maps_ns[i,:,:] = B_mapi_ns
+                Bz_maps_ns[i,:,:] = Bz_mapi_ns
             
-        return revs, B_maps_0, Bz_maps_0, B_maps, Bz_maps, s_maps
+        return revs, B_maps_0, Bz_maps_0, B_maps, Bz_maps, B_maps_ns, Bz_maps_ns
 
