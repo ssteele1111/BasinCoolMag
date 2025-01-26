@@ -1681,7 +1681,14 @@ void HeatEquation<dim>::run_simple()
 	std::ifstream mesh_stream(cfg.mesh_filename,
 			std::ifstream::in);
 
-	grid_in.read_ucd(mesh_stream);
+	// read mesh from file and set boundary IDs if necessary
+	if (cfg.mesh_filename.substr(cfg.mesh_filename.find_last_of(".") + 1) == "inp") {
+		grid_in.read_ucd(mesh_stream);
+		set_boundary_indicators();
+
+	} else if (cfg.mesh_filename.substr(cfg.mesh_filename.find_last_of(".") + 1) == "msh") {
+		grid_in.read_msh(mesh_stream);
+	}
 
 	// copy original, unrefined triangulation to use for text output
 	triangulation_preref.copy_triangulation(triangulation);
@@ -1692,8 +1699,6 @@ void HeatEquation<dim>::run_simple()
 		triangulation.refine_global(cfg.global_refinement);
 	};
 
-	// set boundary indicators
-	set_boundary_indicators();
 
 	// load initial temperature field
 	load_initial_temperature();
@@ -1924,7 +1929,7 @@ int main(int argc, char* argv[])
 		if (argc == 1) // if no input parameters (as if launched from eclipse)
 		{
 			// std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/200km/config.cfg");
-			std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/2200km/config.cfg");
+			std::strcpy(config_filename,"/home/mike/Sarah/Mercury/MercuryBasins/77km/config.cfg");
 		}
 		config_in cfg(config_filename);
 		HeatEquation<2> heat_equation_solver(cfg);
