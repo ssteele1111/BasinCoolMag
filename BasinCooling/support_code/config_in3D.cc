@@ -16,7 +16,7 @@ using namespace libconfig;
 class config_in
 {
 public:
-	config_in(char*);
+	config_in3D(char*);
 
 	// I/O information
 	string config_filename;
@@ -25,6 +25,7 @@ public:
     unsigned int kappa_type;
 	string output_folder;
 	string x_file;
+	string y_file
 	string z_file;
 	string temp_file;
 	string eq_temp_file;
@@ -37,8 +38,10 @@ public:
 	double intercept;
 
 	// solution domain parameters
-	double x_left;
-	double x_right;
+	double x_min;
+	double x_max;
+	double y_min;
+	double y_max;
 	double z_bottom;
 
 	// Rheology parameters
@@ -195,6 +198,18 @@ config_in::config_in(char* filename)
 		  cerr << "No 'x_file' setting in configuration file." << endl;
 	  }
 
+		// get y file
+	  try
+	  {
+		  string y_file_string = cfg.lookup("y_file");
+		  y_file = y_file_string;
+		  cout << "y file: " << y_file_string << endl;
+	  }
+	  catch(const SettingNotFoundException &nfex)
+	  {
+		  cerr << "No 'y_file' setting in configuration file." << endl;
+	  }
+
 	  // get z file
 	  try
 	  {
@@ -249,8 +264,10 @@ config_in::config_in(char* filename)
 		  mesh_refinement_parameters.lookupValue("impact_refinement", impact_refinement);
 		  mesh_refinement_parameters.lookupValue("impact_refine_region", impact_refine_region);
 
-		  mesh_refinement_parameters.lookupValue("x_left",   x_left);
-		  mesh_refinement_parameters.lookupValue("x_right",  x_right);
+		  mesh_refinement_parameters.lookupValue("x_min",   x_min);
+		  mesh_refinement_parameters.lookupValue("x_max",   x_max);
+		  mesh_refinement_parameters.lookupValue("y_min",   y_min);
+		  mesh_refinement_parameters.lookupValue("y_max",   y_max);
 		  mesh_refinement_parameters.lookupValue("z_bottom", z_bottom);
 
 		  cout << "******** Mesh refinement parameters **********" << endl;
@@ -261,8 +278,10 @@ config_in::config_in(char* filename)
 		  cout << "impact_refinement: " << impact_refinement << endl;
 		  cout << "impact_refine_region: " << impact_refine_region << endl;
 
-		  cout << "x left: " << x_left << endl;
-		  cout << "x right: " << x_right << endl;
+		  cout << "x min: " << x_min << endl;
+		  cout << "x max: " << x_max << endl;
+		  cout << "y min: " << y_min << endl;
+		  cout << "y max: " << y_max << endl;
 		  cout << "z bottom: " << z_bottom << endl;
 
 	  }

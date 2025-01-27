@@ -50,13 +50,13 @@
 #include <vector>
 #include <cmath>
 
-#include "support_code/config_in.cc"
+#include "support_code/config_in3D.cc"
 #include "support_code/timer.h"
 
 #include "heat_transfer.cc"
 #include "rheology.cc"
 #include "heat_right_hand_side.cc"
-#include "initial_temperature.cc"
+#include "initial_temperatur_3D.cc"
 #include "heat_boundary_values.cc"
 
 #include <armadillo>
@@ -72,7 +72,7 @@ template <int dim>
 class HeatEquation
 {
 public:
-	HeatEquation(config_in&);
+	HeatEquation(config_in3D&);
 	void clear_output_directory();
 	void run_newton();
 	void run_simple();
@@ -139,10 +139,9 @@ private:
 	Vector<double> heat_system_rhs;
 	Vector<double> heat_bc_rhs;
 
-	HeatBoundaryValuesRight<dim> heat_boundary_values_function_right;
+	HeatBoundaryValuesRight<dim> heat_boundary_values_function_side;
 	HeatBoundaryValuesBottom<dim> heat_boundary_values_function_bottom;
 	HeatBoundaryValuesTop<dim> heat_boundary_values_function_top;
-	HeatBoundaryValuesTop<dim> heat_boundary_values_function_top2;
 
 	double       time;
 	double       time_step;
@@ -151,11 +150,12 @@ private:
 	double alpha;
 
 	vec x_vec;
+	vec y_vec;
 	vec z_vec;
-	mat kappa_mat;
+	cube kappa_mat;
 	Kappa<dim> k_init;
-	mat initial_temperature_mat;
-	mat eq_temperature_mat;
+	cube initial_temperature_mat;
+	cube eq_temperature_mat;
 	double		 T_eq;
 	double		 T_bottom;
 	const Point<dim> bottom_corner;
@@ -190,14 +190,13 @@ template <int dim>
 void HeatEquation<dim>::load_initial_temperature()
 {
 	x_vec.load(cfg.x_file, raw_ascii);
+	y_vec.load(cfg.y_file, raw_ascii);
 	z_vec.load(cfg.z_file, raw_ascii);
 	initial_temperature_mat.load(cfg.temp_file, raw_ascii);
 	eq_temperature_mat.load(cfg.eq_temp_file, raw_ascii);
 
 	std::cout << "Finite>?" << initial_temperature_mat.has_nan() << std::endl;
-	if (cfg.kappa_type == 1) {
-		kappa_mat.load(cfg.kappa_filename, raw_ascii);
-	}
+	
 
 	T_eq = cfg.T_surf;
 }
@@ -206,8 +205,10 @@ template <int dim>
 void HeatEquation<dim>::set_boundary_indicators()
 {
 	double zero_tolerance = 1.0e-4;
-	double distance_left;
-	double distance_right;
+	double distance_x_min;
+	double distance_x_max;
+	double distance_y_min;
+	double distance_y_max;
 	double distance_bottom;
 	double distance_top;
 
@@ -219,27 +220,38 @@ void HeatEquation<dim>::set_boundary_indicators()
 			if (cell->face(f)->at_boundary())
 			{
 				// find distance to closest flat boundary
-				distance_left   = fabs(cell->face(f)->center()[0] - cfg.x_left);
-				distance_right  = fabs(cell->face(f)->center()[0] - cfg.x_right);
+				distance_x_min   = fabs(cell->face(f)->center()[0] - cfg.x_min);
+				distance_x_max  = fabs(cell->face(f)->center()[0] - cfg.x_max);
+				distance_y_min   = fabs(cell->face(f)->center()[0] - cfg.y_min);
+				distance_y_max  = fabs(cell->face(f)->center()[0] - cfg.y_max);
 				distance_bottom = fabs(cell->face(f)->center()[1] - cfg.z_bottom);
 				distance_top = fabs(cell->face(f)->center()[1]);
 
-				// ID = 0 : left boundary
-				if (distance_left < zero_tolerance)
+				// ID = 0 : side boundary (zero flux)
+				// ID = 2 : side boundary (fixed value)
+				if (distance_x_min < zero_tolerance)
 				{
 					cell->face(f)->set_all_boundary_ids(0);
-
 				}
+				if (distance_x_max < zero_tolerance)
+				{
+					cell->face(f)->set_all_boundary_ids(0);
+				}
+				if (distance_y_min < zero_tolerance)
+				{
+					cell->face(f)->set_all_boundary_ids(0);
+				}
+				if (distance_y_max < zero_tolerance)
+				{
+					cell->face(f)->set_all_boundary_ids(0);
+				}
+
 				// ID = 1 : bottom boundary
 				else if (distance_bottom <  zero_tolerance)
 				{
 					cell->face(f)->set_all_boundary_ids(1);
 				}
-				// ID = 2 : right boundary
-				else if (distance_right <  zero_tolerance)
-				{
-					cell->face(f)->set_all_boundary_ids(2);
-				}
+				
 				// ID = 3 : top boundary
 				else if (distance_top <  zero_tolerance)
 				{
@@ -253,7 +265,7 @@ void HeatEquation<dim>::set_boundary_indicators()
 template <int dim>
 void HeatEquation<dim>::set_system_BCs()
 {
-	std::map<types::global_dof_index, double> heat_boundary_values_right;
+	std::map<types::global_dof_index, double> heat_boundary_values_side;
 	std::map<types::global_dof_index, double> heat_boundary_values_bottom;
 	std::map<types::global_dof_index, double> heat_boundary_values_top;
 
@@ -264,11 +276,11 @@ void HeatEquation<dim>::set_system_BCs()
 
 	VectorTools::interpolate_boundary_values(dof_handler,
 			2,
-			heat_boundary_values_function_right,
+			heat_boundary_values_function_side,
 			heat_boundary_values_right);
 			
 	// VectorTools::interpolate_boundary_values(dof_handler,
-			// 5,
+			// 3,
 			// heat_boundary_values_function_top,
 			// heat_boundary_values_top);
 
@@ -277,7 +289,7 @@ void HeatEquation<dim>::set_system_BCs()
 			heat_solution,
 			heat_system_rhs);
 
-	MatrixTools::apply_boundary_values(heat_boundary_values_right,
+	MatrixTools::apply_boundary_values(heat_boundary_values_side,
 			heat_system_matrix,
 			heat_solution,
 			heat_system_rhs);
@@ -1082,14 +1094,14 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_nonlinear()
 	VectorTools::interpolate_boundary_values(dof_handler,
 			2,
 			Functions::ZeroFunction<dim>(),
-			heat_boundary_values_right);
+			heat_boundary_values_side);
 
 	MatrixTools::apply_boundary_values(heat_boundary_values_bottom,
 			heat_system_matrix,
 			heat_update,
 			heat_system_rhs);
 
-	MatrixTools::apply_boundary_values(heat_boundary_values_right,
+	MatrixTools::apply_boundary_values(heat_boundary_values_side,
 			heat_system_matrix,
 			heat_update,
 			heat_system_rhs);
@@ -1139,10 +1151,9 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_linear()
 
 	constraints.condense(heat_system_matrix, heat_system_rhs);
 
-	std::map<types::global_dof_index, double> heat_boundary_values_right;
+	std::map<types::global_dof_index, double> heat_boundary_values_side;
 	std::map<types::global_dof_index, double> heat_boundary_values_bottom;
 	std::map<types::global_dof_index, double> heat_boundary_values_top;
-	std::map<types::global_dof_index, double> heat_boundary_values_top2;
 
 	VectorTools::interpolate_boundary_values(dof_handler,
 			1,
@@ -1151,7 +1162,7 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_linear()
 
 	VectorTools::interpolate_boundary_values(dof_handler,
 			2,
-			heat_boundary_values_function_right,
+			heat_boundary_values_function_side,
 			heat_boundary_values_right);
 
 	VectorTools::interpolate_boundary_values(dof_handler,
@@ -1169,7 +1180,7 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_linear()
 			heat_solution,
 			heat_system_rhs);
 
-	MatrixTools::apply_boundary_values(heat_boundary_values_right,
+	MatrixTools::apply_boundary_values(heat_boundary_values_side,
 			heat_system_matrix,
 			heat_solution,
 			heat_system_rhs);
@@ -1179,17 +1190,13 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_linear()
 			heat_solution,
 			heat_system_rhs);
 
-	MatrixTools::apply_boundary_values(heat_boundary_values_top2,
-				heat_system_matrix,
-				heat_solution,
-				heat_system_rhs);
 
 }
 
 template <int dim>
 void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
 {
-	const double grad_adj = 0.7;
+	const double grad_adj = 1;
 
 	heat_tmp.reinit(heat_solution.size());
 	heat_bc_tmp.reinit(heat_solution.size());
@@ -1496,8 +1503,8 @@ void HeatEquation<dim>::textual_output_results() const
 template <int dim>
 void HeatEquation<dim>::set_initial_temperature()
 {
-	InitialTemperature<dim> t_init;
-	t_init.set_initial_temperature_field(x_vec,z_vec,initial_temperature_mat);
+	InitialTemperature3D<dim> t_init;
+	t_init.set_initial_temperature_field_3D(x_vec,y_vec,z_vec,initial_temperature_mat);
 
 	VectorTools::interpolate(dof_handler,
 			t_init,
@@ -1513,17 +1520,12 @@ void HeatEquation<dim>::set_initial_temperature()
 	for (const auto &cell : dof_handler.active_cell_iterators())
 	  if (!evaluation_point_found)
 		for (const auto vertex : cell->vertex_indices())
-		  if (cell->vertex(vertex) == Point<dim>(cfg.x_right,cfg.z_bottom))
+		  if (cell->vertex(vertex) == Point<dim>(cfg.x_min,cfg.y_min,cfg.z_bottom))
 			{
 			  T_bottom = heat_solution(cell->vertex_dof_index(vertex, 0));
 			  evaluation_point_found = true;
 			  break;
 			};
-
-	// load kappa data if necessary
-	if (cfg.kappa_type == 1) {
-		k_init.set_kappa(x_vec,z_vec,kappa_mat);
-	}
 
 };
 
@@ -1688,6 +1690,7 @@ void HeatEquation<dim>::run_simple()
 
 	} else if (cfg.mesh_filename.substr(cfg.mesh_filename.find_last_of(".") + 1) == "msh") {
 		grid_in.read_msh(mesh_stream);
+		set_boundary_indicators();
 	}
 
 	// copy original, unrefined triangulation to use for text output
@@ -1725,8 +1728,8 @@ void HeatEquation<dim>::run_simple()
 		// set boundary indicators
 		set_boundary_indicators();
 
-		// heat_boundary_values_function_top.set_surface_temperature(cfg.T_surf);
-		heat_boundary_values_function_right.set_temperature_field(x_vec,z_vec,eq_temperature_mat);
+		heat_boundary_values_function_top.set_surface_temperature(cfg.T_surf);
+		// heat_boundary_values_function_side.set_temperature_field(x_vec,y_vec,z_vec,eq_temperature_mat);
 		heat_boundary_values_function_bottom.set_bottom_temperature(T_bottom);
 		//std::cout << "Boundary functions set" << std::endl;
 
@@ -1834,7 +1837,7 @@ void HeatEquation<dim>::run_newton()
 		bool in_equil = false;
 
 		// define boundary value functions
-		heat_boundary_values_function_right.set_temperature_field(x_vec,z_vec,initial_temperature_mat);
+		heat_boundary_values_function_side.set_temperature_field(x_vec,y_vec,z_vec,initial_temperature_mat);
 		heat_boundary_values_function_bottom.set_bottom_temperature(T_bottom);
 		heat_boundary_values_function_top.set_surface_temperature(T_eq);
 		heat_boundary_values_function_top2.set_surface_temperature(T_eq);
