@@ -13,7 +13,7 @@
 using namespace std;
 using namespace libconfig;
 
-class config_in
+class config_in3D
 {
 public:
 	config_in3D(char*);
@@ -25,7 +25,7 @@ public:
     unsigned int kappa_type;
 	string output_folder;
 	string x_file;
-	string y_file
+	string y_file;
 	string z_file;
 	string temp_file;
 	string eq_temp_file;
@@ -121,7 +121,7 @@ public:
 	void write_config();
 };
 
-config_in::config_in(char* filename)
+config_in3D::config_in3D(char* filename)
 {
 	// This example reads the configuration file 'example.cfg' and displays
 	// some of its contents.
@@ -160,19 +160,19 @@ config_in::config_in(char* filename)
 
 	  // get mesh name
 
-	  try
-	  {
-		string kappa = cfg.lookup("kappa_file");
-		kappa_filename = kappa;
-		cout << "kappa file: " << kappa_filename << endl;
-		kappa_type = 1; // load z-kappa data from file
+	//   try
+	//   {
+	// 	string kappa = cfg.lookup("kappa_file");
+	// 	kappa_filename = kappa;
+	// 	cout << "kappa file: " << kappa_filename << endl;
+	// 	kappa_type = 1; // load z-kappa data from file
 
-	  }
-	  catch(const SettingNotFoundException &nfex)
-	  {
-		  kappa_type = 0; // use material id to get kappa
-		  cerr << "No 'kappa_filename' setting in configuration file." << endl;
-	  }
+	//   }
+	//   catch(const SettingNotFoundException &nfex)
+	//   {
+	// 	  kappa_type = 0; // use material id to get kappa
+	// 	  cerr << "No 'kappa_filename' setting in configuration file." << endl;
+	//   }
 
 	  // get output folder
 	  try
@@ -550,7 +550,7 @@ config_in::config_in(char* filename)
 	  cout << "run_type = " << run_type << endl;
 }
 
-void config_in::write_config()
+void config_in3D::write_config()
 {
 //		std::ostringstream config_parameters;
 //		config_parameters << output_folder << "/run_parameters.txt";

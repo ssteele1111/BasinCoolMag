@@ -32,7 +32,7 @@ double HeatRightHandSide<dim>::value(const Point<dim> & p, const unsigned int co
 {
 	(void)component;
 	AssertIndexRange(component, 1);
-	Assert(dim == 2, ExcNotImplemented());
+	// Assert(dim == 2, ExcNotImplemented());
 
 	const double time = this->get_time();
 

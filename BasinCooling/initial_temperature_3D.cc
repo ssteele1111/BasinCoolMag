@@ -7,6 +7,7 @@
 
 #include <deal.II/base/function.h>
 #include <armadillo>
+#include <iostream>
 
 using namespace dealii;
 using namespace arma;
@@ -40,6 +41,7 @@ void InitialTemperature3D<dim>::set_initial_temperature_field_3D(vec x_veci, vec
 
 	temp_mat = temp_mapi;
 	temp_mat.reshape(x_dim, y_dim, z_dim);
+	std::cout << temp_mat.n_rows << " " << temp_mat.n_cols << " " << temp_mat.n_slices << std::endl;
 
 	// temp_mat.set_size(z_dim, y_dim, x_dim);
 
@@ -58,12 +60,12 @@ double InitialTemperature3D<dim>::value(const Point<dim> & p,
 		{
 	(void)component;
 	Assert(component == 0, ExcIndexRange(component, 0, 1));
-
+	
 	vec x_value_vec(1);
 	vec y_value_vec(1);
 	vec z_value_vec(1);
 	vec dz;
-	cube temp_value_mat(1,1,1);
+	mat temp_value_mat(1,1);
 
 	double x = p.operator ()(0);
 	double y = p.operator ()(1);
@@ -74,14 +76,33 @@ double InitialTemperature3D<dim>::value(const Point<dim> & p,
 	z_value_vec(0) = z;
 
 	
-	dz = (z_vec-z)*(z_vec-z)
-	uword zi = index_min(dz)
+	dz = square(z_vec-z);
+	uword zi = index_min(dz);
 
-	interp2(x_vec, y_vec, temp_mat.slice(uword), x_value_vec, y_value_vec, temp_value_mat,"nearest",800.);
+    // std::cout << "x_vec size: " << x_vec.n_elem << std::endl;
+    // std::cout << "y_vec size: " << y_vec.n_elem << std::endl;
+    // std::cout << "temp_mat slice size: " << temp_mat.slice(zi).n_rows << "x" << temp_mat.slice(zi).n_cols << std::endl;
+    // std::cout << "x_value_vec size: " << x_value_vec.n_elem << std::endl;
+    // std::cout << "y_value_vec size: " << y_value_vec.n_elem << std::endl;
+
+	interp2(y_vec, x_vec, temp_mat.slice(zi), y_value_vec, x_value_vec, temp_value_mat,"nearest",800.);
 	
 	
 	double T_out;
-	T_out = temp_value_mat(0,0,0);
+	T_out = temp_value_mat(0,0);
+
+
+    // Open a file stream to write the output
+    std::ofstream outfile("/home/mike/Sarah/Mercury/LT2000/temperature_output.txt", std::ios_base::app); // Append mode
+    if (outfile.is_open())
+    {
+        outfile << x_value_vec(0) << "," << y_value_vec(0) << "," << z_value_vec(0) << T_out << std::endl;
+        outfile.close();
+    }
+    else
+    {
+        std::cerr << "Unable to open file for writing" << std::endl;
+    }
 
 	//    limit temperature field
 	//    if (temp_value_mat(0,0)>273.0)
