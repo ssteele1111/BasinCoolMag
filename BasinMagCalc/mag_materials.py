@@ -48,6 +48,13 @@ def M_hem(T):    # from Lillis et al. (2013)
     
     return M, M_susc
 
+def M_kam1(T,susc=1.):
+    T = T-273.15
+    M = 1 - gammainc(0.49455, (767-T)/304.766)/gammainc(0.49455, (767)/304.766)
+    M[np.isnan(M)] = 1
+
+    return M, susc 
+
 def M_composite(T,fP=1./3.,fM=1./3.,fH=1./3.,mag_dens=0.0005):
     
     MP = M_pyrr(T)

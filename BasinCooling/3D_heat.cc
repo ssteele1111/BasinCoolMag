@@ -103,6 +103,7 @@ private:
 	void unrefine_mesh();
 	void graphical_output_results(unsigned int newton_iter) const;
 	void graphical_output_results_simple() const;
+	void graphical_output_results_specified() const;
 	void textual_output_results() const;
 	void textual_output_results_blocks() const;
 	void set_initial_temperature();
@@ -199,6 +200,7 @@ void HeatEquation<dim>::set_boundary_indicators()
 	double distance_y_max;
 	double distance_bottom;
 	double distance_top;
+	std::cout << "Setting boundary indicators" << std::endl;
 
 	for (const auto &cell : dof_handler.active_cell_iterators()) // loop over all cells
 	{
@@ -210,10 +212,10 @@ void HeatEquation<dim>::set_boundary_indicators()
 				// find distance to closest flat boundary
 				distance_x_min = fabs(cell->face(f)->center()[0] - cfg.x_min);
 				distance_x_max = fabs(cell->face(f)->center()[0] - cfg.x_max);
-				distance_y_min = fabs(cell->face(f)->center()[0] - cfg.y_min);
-				distance_y_max = fabs(cell->face(f)->center()[0] - cfg.y_max);
-				distance_bottom = fabs(cell->face(f)->center()[1] - cfg.z_bottom);
-				distance_top = fabs(cell->face(f)->center()[1]);
+				distance_y_min = fabs(cell->face(f)->center()[1] - cfg.y_min);
+				distance_y_max = fabs(cell->face(f)->center()[1] - cfg.y_max);
+				distance_bottom = fabs(cell->face(f)->center()[2] - cfg.z_bottom);
+				distance_top = fabs(cell->face(f)->center()[2]);
 
 				// ID = 0 : side boundary (zero flux)
 				// ID = 2 : side boundary (fixed value)
@@ -237,12 +239,14 @@ void HeatEquation<dim>::set_boundary_indicators()
 				// ID = 1 : bottom boundary
 				else if (distance_bottom < zero_tolerance)
 				{
+					// std::cout << "Bottom boundary cell" <<std::endl;
 					cell->face(f)->set_all_boundary_ids(1);
 				}
 
 				// ID = 3 : top boundary
 				else if (distance_top < zero_tolerance)
 				{
+					// std::cout << "Top boundary cell" <<std::endl;
 					cell->face(f)->set_all_boundary_ids(3);
 				}
 			}
@@ -267,10 +271,10 @@ void HeatEquation<dim>::set_system_BCs()
 	// 		heat_boundary_values_function_side,
 	// 		heat_boundary_values_right);
 
-	// VectorTools::interpolate_boundary_values(dof_handler,
-	// 3,
-	// heat_boundary_values_function_top,
-	// heat_boundary_values_top);
+	VectorTools::interpolate_boundary_values(dof_handler,
+	3,
+	heat_boundary_values_function_top,
+	heat_boundary_values_top);
 
 	MatrixTools::apply_boundary_values(heat_boundary_values_bottom,
 									   heat_system_matrix,
@@ -282,10 +286,10 @@ void HeatEquation<dim>::set_system_BCs()
 	// 		heat_solution,
 	// 		heat_system_rhs);
 
-	// MatrixTools::apply_boundary_values(heat_boundary_values_top,
-	// 		heat_system_matrix,
-	// 		heat_solution,
-	// 		heat_system_rhs);
+	MatrixTools::apply_boundary_values(heat_boundary_values_top,
+			heat_system_matrix,
+			heat_solution,
+			heat_system_rhs);
 }
 
 template <int dim>
@@ -382,8 +386,8 @@ void HeatEquation<dim>::heat_setup_system()
 
 	heat_mass_matrix.reinit(sparsity_pattern);
 	heat_laplace_matrix.reinit(sparsity_pattern);
-	heat_bc_matrix.reinit(sparsity_pattern);
-	heat_bc_matrix_2.reinit(sparsity_pattern);
+	// heat_bc_matrix.reinit(sparsity_pattern);
+	// heat_bc_matrix_2.reinit(sparsity_pattern);
 	heat_system_matrix.reinit(sparsity_pattern);
 
 	// initialize solutions
@@ -392,7 +396,7 @@ void HeatEquation<dim>::heat_setup_system()
 	old_heat_solution.reinit(dof_handler.n_dofs());
 	kappa_vals.reinit(dof_handler.n_dofs());
 	heat_update.reinit(dof_handler.n_dofs());
-	heat_bc_rhs.reinit(dof_handler.n_dofs());
+	// heat_bc_rhs.reinit(dof_handler.n_dofs());
 	heat_system_rhs.reinit(dof_handler.n_dofs());
 
 	if (cfg.run_type == 1)
@@ -811,10 +815,10 @@ void HeatEquation<dim>::heat_compute_mass_and_laplace_matrices_simple()
 	// make new mass, laplace, and BC matrices that are the right shape and filled with zeros
 	heat_mass_matrix.reinit(sparsity_pattern);
 	heat_laplace_matrix.reinit(sparsity_pattern);
-	heat_bc_matrix.reinit(sparsity_pattern);
+	// heat_bc_matrix.reinit(sparsity_pattern);
 
 	// initialize rhs
-	heat_bc_rhs.reinit(dof_handler.n_dofs());
+	// heat_bc_rhs.reinit(dof_handler.n_dofs());
 
 	// set heat transfer
 	HeatTransfer heat_transfer(cfg.rho, cfg.k, cfg.cp);
@@ -945,82 +949,82 @@ void HeatEquation<dim>::heat_compute_mass_and_laplace_matrices_simple()
 	 * ===================
 	 */
 
-	for (const auto &cell : dof_handler.active_cell_iterators())
-	{
-		cell_matrix = 0;
-		cell_rhs = 0;
-		fe_values.reinit(cell);
-		fe_values.get_function_values(heat_solution, temperature_at_q_points);
+// 	for (const auto &cell : dof_handler.active_cell_iterators())
+// 	{
+// 		cell_matrix = 0;
+// 		cell_rhs = 0;
+// 		fe_values.reinit(cell);
+// 		fe_values.get_function_values(heat_solution, temperature_at_q_points);
 
-		// compute term from radiative boundary condition
-		// iterate over faces
-		for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; ++f)
-		{
-			// check if face is at top boundary
-			if (cell->face(f)->at_boundary() && (cell->face(f)->boundary_id() == 3))
-			{
-				fe_top_values.reinit(cell, f);
+// 		// compute term from radiative boundary condition
+// 		// iterate over faces
+// 		for (unsigned int f = 0; f < GeometryInfo<dim>::faces_per_cell; ++f)
+// 		{
+// 			// check if face is at top boundary
+// 			if (cell->face(f)->at_boundary() && (cell->face(f)->boundary_id() == 3))
+// 			{
+// 				fe_top_values.reinit(cell, f);
 
-				// get values of heat_solution at top quadrature points
-				fe_top_values.get_function_values(heat_solution, temperature_at_top_q_points);
+// 				// get values of heat_solution at top quadrature points
+// 				fe_top_values.get_function_values(heat_solution, temperature_at_top_q_points);
 
-				for (unsigned int q_index = 0; q_index < n_top_q_points; ++q_index)
-				{
-					// get radial location
-					r_value = fe_top_values.quadrature_point(q_index)[0];
+// 				for (unsigned int q_index = 0; q_index < n_top_q_points; ++q_index)
+// 				{
+// 					// get radial location
+// 					r_value = fe_top_values.quadrature_point(q_index)[0];
 
-					// get local temperature
-					T_local = temperature_at_top_q_points[q_index];
+// 					// get local temperature
+// 					T_local = temperature_at_top_q_points[q_index];
 
-					const double current_coefficient = sb_constant;
+// 					const double current_coefficient = sb_constant;
 
-					for (unsigned int i = 0; i < dofs_per_cell; ++i)
-					{
-						// not currently in use, just the start of infrastructure to stop explicitly calculating radiative cooling
-						// once the surface temp is close enough to equilibrium
-						if (abs(T_eq - T_local) >= 0)
-						{
-							cell_rhs(i) += (current_coefficient *					// sigma
-											pow(T_eq, 4) *							// T^{n-1}^4
-											fe_top_values.shape_value(i, q_index) * //
-											fe_top_values.JxW(q_index));
+// 					for (unsigned int i = 0; i < dofs_per_cell; ++i)
+// 					{
+// 						// not currently in use, just the start of infrastructure to stop explicitly calculating radiative cooling
+// 						// once the surface temp is close enough to equilibrium
+// 						if (abs(T_eq - T_local) >= 0)
+// 						{
+// 							cell_rhs(i) += (current_coefficient *					// sigma
+// 											pow(T_eq, 4) *							// T^{n-1}^4
+// 											fe_top_values.shape_value(i, q_index) * //
+// 											fe_top_values.JxW(q_index));
 
-							for (unsigned int j = 0; j < dofs_per_cell; ++j)
-								cell_matrix(i, j) +=
-									(current_coefficient * pow(T_local, 3) * //  a(x_q)
-									 fe_top_values.shape_value(i, q_index) * //  phi_i(x_q)
-									 fe_top_values.shape_value(j, q_index) * //  phi_j(x_q)
-									 fe_top_values.JxW(q_index));			 //  dx
-						}
-						else
-						{
+// 							for (unsigned int j = 0; j < dofs_per_cell; ++j)
+// 								cell_matrix(i, j) +=
+// 									(current_coefficient * pow(T_local, 3) * //  a(x_q)
+// 									 fe_top_values.shape_value(i, q_index) * //  phi_i(x_q)
+// 									 fe_top_values.shape_value(j, q_index) * //  phi_j(x_q)
+// 									 fe_top_values.JxW(q_index));			 //  dx
+// 						}
+// 						else
+// 						{
 
-							cell_rhs(i) += (current_coefficient *					// sigma
-											pow(T_eq, 4) *							// T^{n-1}^4
-											fe_top_values.shape_value(i, q_index) * //
-											fe_top_values.JxW(q_index));
+// 							cell_rhs(i) += (current_coefficient *					// sigma
+// 											pow(T_eq, 4) *							// T^{n-1}^4
+// 											fe_top_values.shape_value(i, q_index) * //
+// 											fe_top_values.JxW(q_index));
 
-							for (unsigned int j = 0; j < dofs_per_cell; ++j)
-								cell_matrix(i, j) +=
-									(current_coefficient * pow(T_local, 3) * //  a(x_q)
-									 fe_top_values.shape_value(i, q_index) * //  phi_i(x_q)
-									 fe_top_values.shape_value(j, q_index) * //  phi_j(x_q)
-									 fe_top_values.JxW(q_index));			 //  dx
-						}
-					}
-				}
-			}
-		}
+// 							for (unsigned int j = 0; j < dofs_per_cell; ++j)
+// 								cell_matrix(i, j) +=
+// 									(current_coefficient * pow(T_local, 3) * //  a(x_q)
+// 									 fe_top_values.shape_value(i, q_index) * //  phi_i(x_q)
+// 									 fe_top_values.shape_value(j, q_index) * //  phi_j(x_q)
+// 									 fe_top_values.JxW(q_index));			 //  dx
+// 						}
+// 					}
+// 				}
+// 			}
+// 		}
 
-		cell->get_dof_indices(local_dof_indices);
-		for (unsigned int i = 0; i < dofs_per_cell; ++i)
-		{
-			for (unsigned int j = 0; j < dofs_per_cell; ++j)
-				heat_bc_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
+// 		cell->get_dof_indices(local_dof_indices);
+// 		for (unsigned int i = 0; i < dofs_per_cell; ++i)
+// 		{
+// 			for (unsigned int j = 0; j < dofs_per_cell; ++j)
+// 				heat_bc_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
 
-			heat_bc_rhs(local_dof_indices[i]) += cell_rhs(i);
-		}
-	}
+// 			heat_bc_rhs(local_dof_indices[i]) += cell_rhs(i);
+		// }
+	// }
 }
 
 template <int dim>
@@ -1170,35 +1174,28 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_linear()
 template <int dim>
 void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
 {
-	const double grad_adj = 1;
-
 	heat_tmp.reinit(heat_solution.size());
-	heat_bc_tmp.reinit(heat_solution.size());
 	heat_forcing_terms.reinit(heat_solution.size());
-	// cout << old_heat_solution << endl;
-
 	heat_mass_matrix.vmult(heat_system_rhs, old_heat_solution);
+	
 	heat_laplace_matrix.vmult(heat_tmp, old_heat_solution);
-	heat_bc_matrix.vmult(heat_bc_tmp, old_heat_solution);
-
+	
+	
 	heat_system_rhs.add(-(1 - theta) * time_step, heat_tmp);
-	heat_system_rhs.add((1 - 4 * theta) * time_step * grad_adj, heat_bc_tmp);
-	heat_system_rhs.add(-time_step * grad_adj, heat_bc_rhs);
-
 	HeatRightHandSide<dim> heat_rhs_function;
 	heat_rhs_function.set_time(time);
 	VectorTools::create_right_hand_side(dof_handler,
-										QGauss<dim>(fe.degree + 1),
-										heat_rhs_function,
-										heat_tmp);
+			QGauss<dim>(fe.degree + 1),
+			heat_rhs_function,
+			heat_tmp);
 	heat_forcing_terms = heat_tmp;
 	heat_forcing_terms *= time_step * theta;
 
 	heat_rhs_function.set_time(time - time_step);
 	VectorTools::create_right_hand_side(dof_handler,
-										QGauss<dim>(fe.degree + 1),
-										heat_rhs_function,
-										heat_tmp);
+			QGauss<dim>(fe.degree + 1),
+			heat_rhs_function,
+			heat_tmp);
 
 	heat_forcing_terms.add(time_step * (1 - theta), heat_tmp);
 
@@ -1206,35 +1203,105 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
 
 	heat_system_matrix.copy_from(heat_mass_matrix);
 	heat_system_matrix.add(theta * time_step, heat_laplace_matrix);
-	heat_system_matrix.add(-4 * theta * time_step * grad_adj, heat_bc_matrix);
 
 	constraints.condense(heat_system_matrix, heat_system_rhs);
 
 	{
-		// std::map<types::global_dof_index, double> heat_boundary_values_side;
 		std::map<types::global_dof_index, double> heat_boundary_values_bottom;
+		std::map<types::global_dof_index, double> heat_boundary_values_top;
 
 		VectorTools::interpolate_boundary_values(dof_handler,
-												 1,
-												 heat_boundary_values_function_bottom,
-												 heat_boundary_values_bottom);
+				1,
+				heat_boundary_values_function_bottom,
+				heat_boundary_values_bottom);
 
-		// VectorTools::interpolate_boundary_values(dof_handler,
-		// 		2,
-		// 		heat_boundary_values_function_side,
-		// 		heat_boundary_values_right);
+		VectorTools::interpolate_boundary_values(dof_handler,
+				3,
+				heat_boundary_values_function_top,
+				heat_boundary_values_top);
 
 		MatrixTools::apply_boundary_values(heat_boundary_values_bottom,
-										   heat_system_matrix,
-										   heat_solution,
-										   heat_system_rhs);
+				heat_system_matrix,
+				heat_solution,
+				heat_system_rhs);
 
-		// MatrixTools::apply_boundary_values(heat_boundary_values_right,
-		// 		heat_system_matrix,
-		// 		heat_solution,
-		// 		heat_system_rhs);
+		MatrixTools::apply_boundary_values(heat_boundary_values_top,
+				heat_system_matrix,
+				heat_solution,
+				heat_system_rhs);
 	}
+
 }
+
+
+// template <int dim>
+// void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
+// {
+// 	const double grad_adj = 1;
+
+// 	heat_tmp.reinit(heat_solution.size());
+// 	heat_bc_tmp.reinit(heat_solution.size());
+// 	heat_forcing_terms.reinit(heat_solution.size());
+// 	// cout << old_heat_solution << endl;
+
+// 	heat_mass_matrix.vmult(heat_system_rhs, old_heat_solution);
+// 	heat_laplace_matrix.vmult(heat_tmp, old_heat_solution);
+// 	heat_bc_matrix.vmult(heat_bc_tmp, old_heat_solution);
+
+// 	heat_system_rhs.add(-(1 - theta) * time_step, heat_tmp);
+// 	heat_system_rhs.add((1 - 4 * theta) * time_step * grad_adj, heat_bc_tmp);
+// 	heat_system_rhs.add(-time_step * grad_adj, heat_bc_rhs);
+
+// 	HeatRightHandSide<dim> heat_rhs_function;
+// 	heat_rhs_function.set_time(time);
+// 	VectorTools::create_right_hand_side(dof_handler,
+// 										QGauss<dim>(fe.degree + 1),
+// 										heat_rhs_function,
+// 										heat_tmp);
+// 	heat_forcing_terms = heat_tmp;
+// 	heat_forcing_terms *= time_step * theta;
+
+// 	heat_rhs_function.set_time(time - time_step);
+// 	VectorTools::create_right_hand_side(dof_handler,
+// 										QGauss<dim>(fe.degree + 1),
+// 										heat_rhs_function,
+// 										heat_tmp);
+
+// 	heat_forcing_terms.add(time_step * (1 - theta), heat_tmp);
+
+// 	heat_system_rhs += heat_forcing_terms;
+
+// 	heat_system_matrix.copy_from(heat_mass_matrix);
+// 	heat_system_matrix.add(theta * time_step, heat_laplace_matrix);
+// 	heat_system_matrix.add(-4 * theta * time_step * grad_adj, heat_bc_matrix);
+
+// 	constraints.condense(heat_system_matrix, heat_system_rhs);
+
+// 	{
+// 		// std::map<types::global_dof_index, double> heat_boundary_values_side;
+// 		std::map<types::global_dof_index, double> heat_boundary_values_bottom;
+
+// 		VectorTools::interpolate_boundary_values(dof_handler,
+// 												 1,
+// 												 heat_boundary_values_function_bottom,
+// 												 heat_boundary_values_bottom);
+
+// 		// VectorTools::interpolate_boundary_values(dof_handler,
+// 		// 		2,
+// 		// 		heat_boundary_values_function_side,
+// 		// 		heat_boundary_values_right);
+
+// 		MatrixTools::apply_boundary_values(heat_boundary_values_bottom,
+// 										   heat_system_matrix,
+// 										   heat_solution,
+// 										   heat_system_rhs);
+
+// 		// MatrixTools::apply_boundary_values(heat_boundary_values_right,
+// 		// 		heat_system_matrix,
+// 		// 		heat_solution,
+// 		// 		heat_system_rhs);
+// 	}
+// }
 
 template <int dim>
 void HeatEquation<dim>::heat_solve_system_nonlinear()
@@ -1417,7 +1484,7 @@ void HeatEquation<dim>::graphical_output_results(unsigned int newton_iter) const
 }
 
 template <int dim>
-void HeatEquation<dim>::graphical_output_results_specified(const Triangulation<dim> &specified_grid) const
+void HeatEquation<dim>::graphical_output_results_specified() const
 {
 	if (timestep_number % 1 == 0)
 	{
@@ -1503,6 +1570,7 @@ void HeatEquation<dim>::set_initial_temperature()
 				{
 					T_bottom = heat_solution(cell->vertex_dof_index(vertex, 0));
 					evaluation_point_found = true;
+					std::cout << "T_bottom: " << T_bottom << std::endl;
 					break;
 				};
 };
@@ -1524,7 +1592,7 @@ void HeatEquation<dim>::refine_mesh(const unsigned int min_grid_level,
 													estimated_error_per_cell,
 													0.05, // 2,
 													0.3,
-													100000); //.25);
+													150000); //.25);
 
 	if (triangulation.n_levels() > max_grid_level)
 		for (const auto &cell :
@@ -1604,7 +1672,7 @@ void HeatEquation<dim>::refine_mesh_simple(const unsigned int min_grid_level,
 													gradient_indicator,
 													0.1, // 2,
 													0.3,
-													100000); //.25);
+													150000); //.25);
 	for (const auto &cell : triangulation.active_cell_iterators())
 		gradient_indicator[cell->active_cell_index()] *= (cell->diameter());
 
@@ -1654,12 +1722,12 @@ void HeatEquation<dim>::run_simple()
 	if (cfg.mesh_filename.substr(cfg.mesh_filename.find_last_of(".") + 1) == "inp")
 	{
 		grid_in.read_ucd(mesh_stream);
-		// set_boundary_indicators();
+		set_boundary_indicators();
 	}
 	else if (cfg.mesh_filename.substr(cfg.mesh_filename.find_last_of(".") + 1) == "msh")
 	{
 		grid_in.read_msh(mesh_stream);
-		// set_boundary_indicators();
+		set_boundary_indicators();
 	}
 
 	// copy original, unrefined triangulation to use for text output
@@ -1693,7 +1761,7 @@ start_time_iteration:
 	heat_forcing_terms.reinit(heat_solution.size());
 
 	// set boundary indicators
-	// set_boundary_indicators();
+	set_boundary_indicators();
 
 	heat_boundary_values_function_top.set_surface_temperature(cfg.T_surf);
 	// heat_boundary_values_function_side.set_temperature_field(x_vec,y_vec,z_vec,eq_temperature_mat);
@@ -1728,7 +1796,7 @@ start_time_iteration:
 			++pre_refinement_step;
 
 			heat_tmp.reinit(heat_solution.size());
-			heat_bc_tmp.reinit(heat_solution.size());
+			// heat_bc_tmp.reinit(heat_solution.size());
 			heat_forcing_terms.reinit(heat_solution.size());
 
 			std::cout << std::endl;
@@ -1742,7 +1810,7 @@ start_time_iteration:
 								   cfg.adaptive_refinement);
 
 			heat_tmp.reinit(heat_solution.size());
-			heat_bc_tmp.reinit(heat_solution.size());
+			// heat_bc_tmp.reinit(heat_solution.size());
 			heat_forcing_terms.reinit(heat_solution.size());
 		}
 
@@ -1899,7 +1967,7 @@ int main(int argc, char *argv[])
 		if (argc == 1) // if no input parameters (as if launched from eclipse)
 		{
 			// std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/200km/config.cfg");
-			std::strcpy(config_filename, "/home/mike/Sarah/Mercury/LT25/config.cfg");
+			std::strcpy(config_filename, "/home/mike/Sarah/Mercury/DSK25000_10km/config.cfg");
 		}
 		config_in3D cfg(config_filename);
 		HeatEquation<3> heat_equation_solver(cfg);
