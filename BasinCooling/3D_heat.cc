@@ -1967,7 +1967,7 @@ int main(int argc, char *argv[])
 		if (argc == 1) // if no input parameters (as if launched from eclipse)
 		{
 			// std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/200km/config.cfg");
-			std::strcpy(config_filename, "/home/mike/Sarah/Mercury/DSK25000_10km/config.cfg");
+			std::strcpy(config_filename, "/home/mike/Sarah/Mercury/DSK10000/config.cfg");
 		}
 		config_in3D cfg(config_filename);
 		HeatEquation<3> heat_equation_solver(cfg);

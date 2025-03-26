@@ -99,11 +99,12 @@ class VolMag:
 
         # get cell center locations
         cell_centers_mesh = meshi.cell_centers()
+        #cell_centers_mesh = meshi
         xi=cell_centers_mesh.points[:,0]
         yi=cell_centers_mesh.points[:,1]
         zi=cell_centers_mesh.points[:,2]
 
-        sampled = cell_centers_mesh.sample(meshi)
+        sampled = cell_centers_mesh.sample(meshi,locator='static_cell')
         Tc = sampled['U']
         
         # trim out cells below Curie depth
@@ -133,7 +134,7 @@ class VolMag:
             while os.path.isfile(os.path.join(output_fp,f"solution-{i:03d}.vtk")):
                 meshi = pv.read(os.path.join(output_fp,f"solution-{i:03d}.vtk"))
 
-                sampled = cell_centers_mesh.sample(meshi)
+                sampled = cell_centers_mesh.sample(meshi,locator='static_cell')
                 Tc = sampled['U']
 
                 if len(Tc) != len(zi):
@@ -169,10 +170,10 @@ class VolMag:
     def make_dM(self, M_function,del_T=False):
         M_array,self.susc = M_function(self.T_array)
 
-        M_array = np.maximum.accumulate(M_array[:,::-1])[:,::-1]
+        M_array = np.maximum.accumulate(M_array[:,::-1],axis=1)[:,::-1]
 
         # calculate fraction of magnetization set during each time step
-        self.dM_array = M_array[:,1:]-M_array[:,:-1]
+        self.dM_array = M_array[:,:-1]-M_array[:,1:]
         self.dM_array[self.dM_array<0] = 0
         # np.insert(self.dM_array,-1,0)
 
@@ -205,7 +206,7 @@ class VolMag:
 
         return
     
-    def calc_net_M_avg_t(self,B_time_series):
+    def calc_net_M_avg_t(self,B_time_series,fill_val='mean'):
         '''
         Calculate net magnetization from a magnetic field vector time series by averaging the
         magnetic field time series within each time bin of the cooling simulation.
@@ -215,10 +216,16 @@ class VolMag:
         t_B_in = B_time_series[:,0]
         B_in = B_time_series[:,1:]
 
-        # get indices in time series array corresponding to each temperature step
-        B_avg = np.zeros([len(self.t_list)-1,3])
+        short_t = self.t_list[self.t_list < np.max(t_B_in)]
 
-        for i in range(len(self.t_list) - 1):
+        # set up array
+        if fill_val == 'mean':
+            B_avg = np.ones([len(self.t_list)-1,3])*np.mean(B_in)
+        else:
+            B_avg = np.zeros([len(self.t_list)-1,3])
+
+        # get indices in time series array corresponding to each temperature step
+        for i in range(len(short_t)):
             t_mask = (t_B_in >= self.t_list[i]) & (t_B_in < self.t_list[i + 1])
              
             if np.any(t_mask):
@@ -229,7 +236,7 @@ class VolMag:
                 
                 t_closest = np.argmin(np.abs(t_B_in - self.t_list[i]))
                 B_avg[i,:] = B_in[t_closest] 
-        
+
         # store magnetic field time series used to calculate magnetization
         self.B_t = B_avg
 
@@ -273,6 +280,15 @@ class VolMag:
         self.V = self.V[keep_inds]
         
         print(f'Removed {n0-len(self.z):d} cells with net magnetization below {tol:.2e}.')
+
+        return
+    
+    def save_netM(self, save_fp):
+
+        # cell x [m], cell y [m], cell z [m], cell volume [m^3], Mx [A/m], My [A/m], Mz [A/m]
+        out_array = np.stack([self.x,self.y,self.z,self.V,self.M[:,0],self.M[:,1],self.M[:,2]],axis=1)
+
+        np.save(save_fp,out_array)
 
         return
 

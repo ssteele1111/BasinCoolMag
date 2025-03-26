@@ -41,6 +41,7 @@ def M_mag(T):    # from Lillis et al. (2013)
 def M_hem(T):    # from Lillis et al. (2013)
     TC = T-273
     M = 1- gammainc(1.06,(700 - TC)/20.6)/gammainc(1.06,700/20.6)
+    M[M<0] = 0
     M[np.isnan(M)] = 1
     
     # susceptibility
@@ -48,9 +49,10 @@ def M_hem(T):    # from Lillis et al. (2013)
     
     return M, M_susc
 
-def M_kam1(T,susc=1.):
+def M_kam1(T,susc=1.):      # 50 nm spheres from Figure 4 of Nagy+ (2019)
     T = T-273.15
     M = 1 - gammainc(0.49455, (767-T)/304.766)/gammainc(0.49455, (767)/304.766)
+    M[M<0] = 0
     M[np.isnan(M)] = 1
 
     return M, susc 
