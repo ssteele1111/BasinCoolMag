@@ -945,89 +945,6 @@ void HeatEquation<dim>::heat_compute_mass_and_laplace_matrices_simple()
 				heat_mass_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
 
 	}
-
-	/*========== BC MATRIX ==========
-	 * Create B matrix - this creates a boundary condition matrix manually. This is only performed separately from
-	 * computation of the mass matrix since it is sensitive to the chosen theta and time step values.
-	 * ===================
-	 */
-
-	for (const auto &cell : dof_handler.active_cell_iterators())
-	{
-		cell_matrix = 0;
-		cell_rhs = 0;
-		fe_values.reinit(cell);
-		fe_values.get_function_values(heat_solution,temperature_at_q_points);
-
-		// compute term from radiative boundary condition
-		// iterate over faces
-		for (unsigned int f = 0; f<GeometryInfo<dim>::faces_per_cell; ++f)
-		{
-			// check if face is at top boundary
-			if (cell->face(f)->at_boundary() && (cell->face(f)->boundary_id() == 3))
-			{
-				fe_top_values.reinit(cell, f);
-
-				// get values of heat_solution at top quadrature points
-				fe_top_values.get_function_values(heat_solution,temperature_at_top_q_points);
-
-				for (unsigned int q_index = 0; q_index < n_top_q_points; ++q_index)
-				{
-					// get radial location
-					r_value = fe_top_values.quadrature_point(q_index)[0];
-
-					// get local temperature
-					T_local     = temperature_at_top_q_points[q_index];
-
-					const double current_coefficient = 2*PI*r_value *sb_constant;
-
-					for (unsigned int i = 0; i < dofs_per_cell; ++i)
-					{
-						// not currently in use, just the start of infrastructure to stop explicitly calculating radiative cooling
-						// once the surface temp is close enough to equilibrium
-						if (abs(T_eq - T_local) >= 0)
-						{
-							cell_rhs(i) += (current_coefficient *			// sigma
-									pow(T_eq,4) *							//T^{n-1}^4
-									fe_top_values.shape_value(i,q_index) *	//
-									fe_top_values.JxW(q_index));
-
-							for (unsigned int j = 0; j < dofs_per_cell; ++j)
-								cell_matrix(i, j) +=
-										(current_coefficient * pow(T_local,3) *         //  a(x_q)
-												fe_top_values.shape_value(i, q_index) * //  phi_i(x_q)
-												fe_top_values.shape_value(j, q_index) * //  phi_j(x_q)
-												fe_top_values.JxW(q_index));            //  dx
-
-						} else {
-
-								cell_rhs(i) += (current_coefficient *			// sigma
-										pow(T_eq,4) *							//T^{n-1}^4
-										fe_top_values.shape_value(i,q_index) *	//
-										fe_top_values.JxW(q_index));
-
-								for (unsigned int j = 0; j < dofs_per_cell; ++j)
-									cell_matrix(i, j) +=
-											(current_coefficient * pow(T_local,3) *         //  a(x_q)
-													fe_top_values.shape_value(i, q_index) * //  phi_i(x_q)
-													fe_top_values.shape_value(j, q_index) * //  phi_j(x_q)
-													fe_top_values.JxW(q_index));            //  dx
-							}
-
-						}
-					}
-				}
-			}
-
-		cell->get_dof_indices(local_dof_indices);
-		for (unsigned int i = 0; i < dofs_per_cell; ++i)
-		{
-			for (unsigned int j = 0; j < dofs_per_cell; ++j)
-				heat_bc_matrix.add(local_dof_indices[i], local_dof_indices[j], cell_matrix(i, j));
-
-			heat_bc_rhs(local_dof_indices[i]) += cell_rhs(i);
-		}
-	}
 }
 
 template <int dim>
@@ -1189,22 +1106,14 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_linear()
 template <int dim>
 void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
 {
-	const double grad_adj = 0.7;
-
-	heat_tmp.reinit(heat_solution.size());
-	heat_bc_tmp.reinit(heat_solution.size());
+heat_tmp.reinit(heat_solution.size());
 	heat_forcing_terms.reinit(heat_solution.size());
-	//cout << old_heat_solution << endl;
-
 	heat_mass_matrix.vmult(heat_system_rhs, old_heat_solution);
+	
 	heat_laplace_matrix.vmult(heat_tmp, old_heat_solution);
-	heat_bc_matrix.vmult(heat_bc_tmp, old_heat_solution);
 	
 	
 	heat_system_rhs.add(-(1 - theta) * time_step, heat_tmp);
-	heat_system_rhs.add((1 - 4*theta) * time_step *grad_adj, heat_bc_tmp);
-	heat_system_rhs.add(-time_step*grad_adj, heat_bc_rhs);
-
 	HeatRightHandSide<dim> heat_rhs_function;
 	heat_rhs_function.set_time(time);
 	VectorTools::create_right_hand_side(dof_handler,
@@ -1226,13 +1135,15 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
 
 	heat_system_matrix.copy_from(heat_mass_matrix);
 	heat_system_matrix.add(theta * time_step, heat_laplace_matrix);
-	heat_system_matrix.add(-4 * theta * time_step*grad_adj, heat_bc_matrix);
+
+
 
 	constraints.condense(heat_system_matrix, heat_system_rhs);
 
 	{
 		std::map<types::global_dof_index, double> heat_boundary_values_right;
 		std::map<types::global_dof_index, double> heat_boundary_values_bottom;
+		std::map<types::global_dof_index, double> heat_boundary_values_top;
 
 		VectorTools::interpolate_boundary_values(dof_handler,
 				1,
@@ -1244,6 +1155,11 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
 				heat_boundary_values_function_right,
 				heat_boundary_values_right);
 
+		VectorTools::interpolate_boundary_values(dof_handler,
+				3,
+				heat_boundary_values_function_top,
+				heat_boundary_values_top);
+
 		MatrixTools::apply_boundary_values(heat_boundary_values_bottom,
 				heat_system_matrix,
 				heat_solution,
@@ -1254,6 +1170,10 @@ void HeatEquation<dim>::heat_setup_crank_nicolson_simple()
 				heat_solution,
 				heat_system_rhs);
 
+		MatrixTools::apply_boundary_values(heat_boundary_values_top,
+				heat_system_matrix,
+				heat_solution,
+				heat_system_rhs);
 	}
 }
 
@@ -1300,7 +1220,6 @@ template <int dim>
 void HeatEquation<dim>::heat_solve_system_simple()
 {
 
-  
 	SolverControl solver_control(cfg.heat_iteration_coefficient, cfg.heat_tolerance_coefficient * heat_system_rhs.l2_norm());
 	SolverCG<>    cg(solver_control);
 
@@ -1929,7 +1848,7 @@ int main(int argc, char* argv[])
 		if (argc == 1) // if no input parameters (as if launched from eclipse)
 		{
 			// std::strcpy(config_filename,"/home/basinuser/BasinUser/BasinCooling/BasinData/InPaper/200km/config.cfg");
-			std::strcpy(config_filename,"/home/mike/Sarah/Mercury/MercuryBasins/77km/config.cfg");
+			std::strcpy(config_filename,"/home/mike/Sarah/Mercury/DSK150000/config.cfg");
 		}
 		config_in cfg(config_filename);
 		HeatEquation<2> heat_equation_solver(cfg);

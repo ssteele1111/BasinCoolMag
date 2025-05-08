@@ -4,9 +4,12 @@ Make
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.interpolate import interp1d
+from scipy.interpolate import RectBivariateSpline 
+import pandas as pd
+import matplotlib.pyplot as plt
 
-
-def make_flat_disk_T(x, y, z, x0, y0, z_min, z_max, tube_radius, lava_T, baseline_value=0.):
+def make_flat_disk_T_3D(x, y, z, x0, y0, z_min, z_max, tube_radius, lava_T, baseline_value=0.):
     
     # Initialize the result array with baseline values
     if isinstance(baseline_value, np.ndarray) & (baseline_value.shape == x.shape):
@@ -18,6 +21,20 @@ def make_flat_disk_T(x, y, z, x0, y0, z_min, z_max, tube_radius, lava_T, baselin
     xances = np.sqrt((x - x0)**2 + (y - y0)**2)
     
     keep_inds = (xances <= tube_radius)*(z >= z_min)*(z <= z_max)
+    result[keep_inds] = lava_T
+    
+    return result
+
+def make_flat_disk_T_2D(r, z, z_min, z_max, tube_radius, lava_T, baseline_value=0.):
+    
+    # Initialize the result array with baseline values
+    if isinstance(baseline_value, np.ndarray) & (baseline_value.shape == r.shape):
+        result = baseline_value
+    elif isinstance(baseline_value, float):
+        result = np.full_like(r, baseline_value)
+        
+    
+    keep_inds = (r <= tube_radius)*(z >= z_min)*(z <= z_max)
     result[keep_inds] = lava_T
     
     return result

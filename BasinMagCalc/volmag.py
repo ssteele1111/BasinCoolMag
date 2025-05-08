@@ -220,7 +220,7 @@ class VolMag:
 
         # set up array
         if fill_val == 'mean':
-            B_avg = np.ones([len(self.t_list)-1,3])*np.mean(B_in)
+            B_avg = np.ones([len(self.t_list)-1,3])*np.mean(B_in,axis=0)
         else:
             B_avg = np.zeros([len(self.t_list)-1,3])
 
